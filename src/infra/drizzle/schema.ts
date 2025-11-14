@@ -1,5 +1,5 @@
+import { sql } from 'drizzle-orm';
 import {
-  mysqlTable,
   varchar,
   int,
   boolean,
@@ -11,45 +11,45 @@ import {
   index,
   timestamp,
 } from 'drizzle-orm/mysql-core';
-import { sql } from 'drizzle-orm';
 import { mysqlSchema } from 'drizzle-orm/mysql-core';
-import { check } from 'drizzle-orm/mysql-core';
+import { mysqlTable } from 'drizzle-orm/mysql-core';
 
-export const mySchema = mysqlSchema('my_schema');
+const schemaName = process.env.DB_SCHEMA ?? process.env.DB_NAME ?? 'my_schema';
+export const mySchema = mysqlSchema(schemaName);
 
 // Shared UUID helper
 const uuid = (name: string) => varchar(name, { length: 36 });
 
 // Timestamp helper
 const timestamps = {
-  createdAt: timestamp('createdAt').notNull().defaultNow(),
-  updatedAt: timestamp('updatedAt').notNull().defaultNow().onUpdateNow(),
-  deletedAt: timestamp('deletedAt'),
+  createdAt: datetime('created_at')
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: datetime('updated_at').default(
+    sql`CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`,
+  ),
+  deletedAt: datetime('deletedAt'),
 };
 
 /* =======================================================
    USERS
 ======================================================= */
 
-export const users = mySchema.table(
-  'users',
-  {
-    id: uuid('id').primaryKey(),
-    name: varchar('name', { length: 120 }).notNull(),
-    email: varchar('email', { length: 160 }).notNull().unique(),
-    phone: varchar('phone', { length: 30 }),
-    passwordHash: varchar('passwordHash', { length: 255 }).notNull(),
-    role: varchar('role', { length: 16 }).notNull().default('CUSTOMER'),
+export const users = mysqlTable('users', {
+  id: uuid('id').primaryKey(),
+  name: varchar('name', { length: 120 }).notNull(),
+  email: varchar('email', { length: 160 }).notNull().unique(),
+  phone: varchar('phone', { length: 30 }),
+  passwordHash: varchar('passwordHash', { length: 255 }).notNull(),
+  role: varchar('role', { length: 16 }).notNull().default('CUSTOMER'),
 
-    ...timestamps,
-  },
-  (table) => [check('role_check', sql`${table.role} IN ('ADMIN','CUSTOMER')`)],
-);
+  ...timestamps,
+});
 
 /* =======================================================
    ADDRESSES
 ======================================================= */
-export const addresses = mySchema.table(
+export const addresses = mysqlTable(
   'addresses',
   {
     id: uuid('id').primaryKey(),
@@ -77,7 +77,7 @@ export const addresses = mySchema.table(
 /* =======================================================
    CATEGORIES
 ======================================================= */
-export const categories = mySchema.table(
+export const categories = mysqlTable(
   'categories',
   {
     id: uuid('id').primaryKey(),
@@ -96,7 +96,7 @@ export const categories = mySchema.table(
 /* =======================================================
    AUTHORS
 ======================================================= */
-export const authors = mySchema.table(
+export const authors = mysqlTable(
   'authors',
   {
     id: uuid('id').primaryKey(),
@@ -112,7 +112,7 @@ export const authors = mySchema.table(
 /* =======================================================
    BOOKS
 ======================================================= */
-export const books = mySchema.table(
+export const books = mysqlTable(
   'books',
   {
     id: uuid('id').primaryKey(),
@@ -150,7 +150,7 @@ export const books = mySchema.table(
 /* =======================================================
    REVIEWS
 ======================================================= */
-export const reviews = mySchema.table(
+export const reviews = mysqlTable(
   'reviews',
   {
     id: uuid('id').primaryKey(),
@@ -169,7 +169,6 @@ export const reviews = mySchema.table(
   (table) => [
     uniqueIndex('uniq_reviews_user_product').on(table.userId, table.productId),
     index('idx_reviews_product_rating').on(table.productId, table.rating),
-    check('rating_check', sql`CHECK (${table.rating} BETWEEN 1 AND 5)`),
   ],
 );
 
@@ -190,7 +189,7 @@ export const carts = mysqlTable('carts', {
 /* =======================================================
    CART ITEMS
 ======================================================= */
-export const cartItems = mySchema.table(
+export const cartItems = mysqlTable(
   'cart_items',
   {
     id: uuid('id').primaryKey(),
@@ -214,7 +213,7 @@ export const cartItems = mySchema.table(
 /* =======================================================
    ORDERS
 ======================================================= */
-export const orders = mySchema.table(
+export const orders = mysqlTable(
   'orders',
   {
     id: uuid('id').primaryKey(),
@@ -247,17 +246,13 @@ export const orders = mySchema.table(
   (table) => [
     index('idx_orders_user_status').on(table.userId, table.status),
     index('idx_orders_placedAt').on(table.placedAt),
-    check(
-      'status_check',
-      sql`CHECK (${table.status} IN ('PENDING','PAID','PACKED','SHIPPED','COMPLETED','CANCELLED','REFUNDED'))`,
-    ),
   ],
 );
 
 /* =======================================================
    ORDER ITEMS
 ======================================================= */
-export const orderItems = mySchema.table(
+export const orderItems = mysqlTable(
   'order_items',
   {
     id: uuid('id').primaryKey(),
@@ -282,7 +277,7 @@ export const orderItems = mySchema.table(
 /* =======================================================
    HERO CAROUSEL
 ======================================================= */
-export const heroCarousel = mySchema.table(
+export const heroCarousel = mysqlTable(
   'hero_carousel',
   {
     id: uuid('id').primaryKey(),
