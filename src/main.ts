@@ -11,6 +11,8 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { RequestIdInterceptor } from './common/http/request-id.interceptor';
 
+const cookieParser = require('cookie-parser');
+
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const appConfig = app.get(AppConfig);
@@ -19,7 +21,7 @@ async function bootstrap() {
   // Security
   app.use(helmet());
   app.disable('x-powered-by');
-
+  app.use(cookieParser());
   // CORS
   const cors = appConfig.cors;
   app.enableCors({

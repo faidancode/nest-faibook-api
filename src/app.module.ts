@@ -11,6 +11,7 @@ import { CategoriesModule } from './categories/categories.module';
 import { AppConfigModule } from './config/app-config.module';
 import { RequestIdInterceptor } from './common/http/request-id.interceptor';
 import { LoggingInterceptor } from './common/http/logging.interceptor';
+import { BooksModule } from './books/books.module';
 
 @Module({
   imports: [
@@ -23,6 +24,8 @@ import { LoggingInterceptor } from './common/http/logging.interceptor';
     DrizzleModule, // pakai env DB
     HealthModule,
     CategoriesModule,
+    BooksModule,
+    BooksModule,
   ],
   providers: [
     RateLimitService,
