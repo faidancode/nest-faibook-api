@@ -3,13 +3,13 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/http/exception.filter';
 import { ResponseEnvelopeInterceptor } from './common/http/response.interceptor';
-import { RequestIdInterceptor } from './common/http/request-id.interceptor';
 import { LoggingInterceptor } from './common/http/logging.interceptor';
 import { AppConfig } from './config/app.config';
 import helmet from 'helmet';
 import { Logger } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { RequestIdInterceptor } from './common/http/request-id.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
