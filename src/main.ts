@@ -1,0 +1,45 @@
+// src/main.ts
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+import { GlobalExceptionFilter } from './common/http/exception.filter';
+import { ResponseEnvelopeInterceptor } from './common/http/response.interceptor';
+import { RequestIdInterceptor } from './common/http/request-id.interceptor';
+import { LoggingInterceptor } from './common/http/logging.interceptor';
+import { AppConfig } from './config/app.config';
+import helmet from 'helmet';
+import { Logger } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
+
+async function bootstrap() {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const appConfig = app.get(AppConfig);
+  const logger = new Logger('Bootstrap');
+
+  // Security
+  app.use(helmet());
+  app.disable('x-powered-by');
+
+  // CORS
+  const cors = appConfig.cors;
+  app.enableCors({
+    origin:
+      cors.origins.length === 1 && cors.origins[0] === '*'
+        ? true
+        : cors.origins,
+    credentials: cors.credentials,
+  });
+
+  // Global filters & interceptors
+  app.useGlobalFilters(new GlobalExceptionFilter());
+  app.useGlobalInterceptors(
+    app.get(RequestIdInterceptor),
+    app.get(LoggingInterceptor),
+    new ResponseEnvelopeInterceptor(),
+  );
+
+  const port = appConfig.port;
+  await app.listen(port);
+  logger.log(`Server running on http://localhost:${port}`);
+}
+
+bootstrap();
