@@ -1,8 +1,10 @@
 // src/config/env.schema.ts
-import { z } from "zod";
+import { z } from 'zod';
 
 export const EnvSchema = z.object({
-  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  NODE_ENV: z
+    .enum(['development', 'test', 'production'])
+    .default('development'),
 
   // HTTP
   PORT: z
@@ -22,18 +24,16 @@ export const EnvSchema = z.object({
 
   // JWT
   JWT_ACCESS_SECRET: z.string().min(16),
-  JWT_ACCESS_EXPIRES_IN: z.string().default("15m"), // e.g. 15m, 1h
+  JWT_ACCESS_EXPIRES_IN: z.string().default('15m'), // e.g. 15m, 1h
   JWT_REFRESH_SECRET: z.string().min(16),
-  JWT_REFRESH_EXPIRES_IN: z.string().default("7d"),
+  JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
 
   // CORS
-  CORS_ORIGINS: z
-    .string()
-    .default("*"), // "http://localhost:3000,https://myapp.com"
+  CORS_ORIGINS: z.string().default('*'), // "http://localhost:3000,https://myapp.com"
   CORS_CREDENTIALS: z
     .string()
     .optional()
-    .transform((v) => v === "true"),
+    .transform((v) => v === 'true'),
 
   // Rate limit
   RATE_GLOBAL_TTL: z
@@ -57,10 +57,10 @@ export const EnvSchema = z.object({
   ENABLE_SWAGGER: z
     .string()
     .optional()
-    .transform((v) => v === "true"),
+    .transform((v) => v === 'true'),
 
   // Request ID header
-  REQUEST_ID_HEADER: z.string().default("x-request-id"),
+  REQUEST_ID_HEADER: z.string().default('x-request-id'),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -69,8 +69,8 @@ export type Env = z.infer<typeof EnvSchema>;
 export function validateEnv(config: Record<string, unknown>): Env {
   const parsed = EnvSchema.safeParse(config);
   if (!parsed.success) {
-    console.error("❌ Invalid environment variables:", parsed.error.flatten());
-    throw new Error("Invalid environment variables");
+    console.error('❌ Invalid environment variables:', parsed.error.flatten());
+    throw new Error('Invalid environment variables');
   }
   return parsed.data;
 }

@@ -56,11 +56,11 @@ export class AppConfig {
       accessSecret: this.config.get('JWT_ACCESS_SECRET', { infer: true }),
       accessExpiresIn: this.config.get('JWT_ACCESS_EXPIRES_IN', {
         infer: true,
-      }) as StringValue,
+      }),
       refreshSecret: this.config.get('JWT_REFRESH_SECRET', { infer: true }),
       refreshExpiresIn: this.config.get('JWT_REFRESH_EXPIRES_IN', {
         infer: true,
-      }) as StringValue,
+      }),
     };
   }
 

@@ -8,10 +8,10 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
-import type { Request, Response } from 'express';
+import { Request, Response } from 'express';
 import { ZodError } from 'zod';
 import type { JwtPayload } from '../../auth/auth.schemas';
-import { fail, ResponseEnvelope } from './response';
+import { fail, ResponseEnvelope, ResponseError } from './response';
 
 type RequestWithContext = Request & {
   requestId?: string;
@@ -32,58 +32,111 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
-    const response = ctx.getResponse<Response>();
-    const request = ctx.getRequest<RequestWithContext>();
+    const res = ctx.getResponse<Response>();
+    const req = ctx.getRequest<RequestWithContext>();
 
-    const requestId = request.requestId;
-    const userId = request.user?.sub ?? request.user?.id;
+    const requestId = req.requestId;
+    const userId = req.user?.sub ?? req.user?.id;
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
-    let errorEnvelope: ResponseEnvelope<null>;
+    let error: ResponseError;
 
+    // ========================
+    // 1) HttpException (Nest)
+    // ========================
     if (exception instanceof HttpException) {
       status = exception.getStatus();
-      const res = exception.getResponse() as HttpExceptionResponse;
-      const message =
-        typeof res === 'string'
-          ? res
-          : Array.isArray(res.message)
-            ? res.message.join(', ')
-            : res?.message || res?.error || 'HTTP Error';
+      const response = exception.getResponse();
 
-      errorEnvelope = fail(
-        `HTTP_${status}`,
-        message,
-        res && typeof res === 'object' ? res : undefined,
-      );
-    } else if (exception instanceof ZodError) {
-      status = HttpStatus.BAD_REQUEST;
-      errorEnvelope = fail('VALIDATION_ERROR', 'Validation failed', {
-        issues: exception.issues,
-      });
-    } else {
-      status = HttpStatus.INTERNAL_SERVER_ERROR;
-      errorEnvelope = fail('INTERNAL_SERVER_ERROR', 'Internal server error');
+      if (typeof response === 'string') {
+        // Contoh: throw new NotFoundException('Not found')
+        error = {
+          code: `HTTP_${status}`,
+          message: response,
+        };
+      } else if (response && typeof response === 'object') {
+        const obj = response as Record<string, any>;
+
+        // ✅ Utamakan code custom dari payload (misal: RATE_LIMITED)
+        const code: string =
+          (obj.code as string) ??
+          (obj.error?.code as string) ??
+          `HTTP_${status}`;
+
+        // Cari message yang paling masuk akal
+        const message: string =
+          (obj.message as string) ??
+          (obj.error?.message as string) ??
+          ((typeof obj.error === 'string' ? obj.error : '') ||
+            `HTTP Error ${status}`);
+
+        // Buang field yang sudah kita angkat ke level atas
+        const { code: _c, message: _m, error: _e, ...rest } = obj;
+        const hasDetails = Object.keys(rest).length > 0;
+
+        error = {
+          code,
+          message,
+          ...(hasDetails ? { details: rest } : {}),
+        };
+      } else {
+        error = {
+          code: `HTTP_${status}`,
+          message: 'HTTP Error',
+        };
+      }
     }
-
-    this.logger.error(
-      `[${requestId ?? '-'}] ${request.method} ${request.url} -> ${status} ${
-        exception instanceof Error ? exception.message : ''
-      }`,
-      exception instanceof Error ? exception.stack : undefined,
-      userId ? `user:${userId}` : undefined,
-    );
-
-    if (requestId && errorEnvelope.error) {
-      const currentDetails = errorEnvelope.error.details;
-      errorEnvelope.error.details = {
-        ...(typeof currentDetails === 'object' && currentDetails !== null
-          ? (currentDetails as Record<string, unknown>)
-          : {}),
-        requestId,
+    // ========================
+    // 2) ZodError (validasi)
+    // ========================
+    else if (exception instanceof ZodError) {
+      status = HttpStatus.BAD_REQUEST;
+      error = {
+        code: 'VALIDATION_ERROR',
+        message: 'Validation failed',
+        details: {
+          issues: exception.issues,
+        },
+      };
+    }
+    // ========================
+    // 3) Fallback generic error
+    // ========================
+    else {
+      status = HttpStatus.INTERNAL_SERVER_ERROR;
+      error = {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Internal server error',
       };
     }
 
-    response.status(status).json(errorEnvelope);
+    // Tambah requestId kalau ada
+    if (requestId) {
+      error = {
+        ...error,
+        details: {
+          ...(error.details ?? {}),
+          requestId,
+        },
+      };
+    }
+
+    // Logging
+    const msg = (exception as any)?.message ?? error.message;
+    const stack = (exception as any)?.stack;
+    this.logger.error(
+      `[${requestId ?? '-'}] ${req.method} ${req.url} -> ${status} ${msg}`,
+      stack,
+      userId ? `user:${userId}` : undefined,
+    );
+
+    const envelope: ResponseEnvelope<null> = {
+      ok: false,
+      data: null,
+      meta: null,
+      error,
+    };
+
+    res.status(status).json(envelope);
   }
 }

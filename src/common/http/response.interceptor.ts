@@ -5,10 +5,10 @@ import {
   ExecutionContext,
   Injectable,
   NestInterceptor,
-} from "@nestjs/common";
-import type { Observable } from "rxjs";
-import { map } from "rxjs/operators";
-import { ok, type PaginationMeta, type ResponseEnvelope } from "./response";
+} from '@nestjs/common';
+import type { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
+import { ok, type PaginationMeta, type ResponseEnvelope } from './response';
 
 type PaginatedResponse<T = unknown> = {
   items: T;
@@ -16,18 +16,18 @@ type PaginatedResponse<T = unknown> = {
 };
 
 function isResponseEnvelope(value: unknown): value is ResponseEnvelope {
-  if (!value || typeof value !== "object") {
+  if (!value || typeof value !== 'object') {
     return false;
   }
   const candidate = value as Partial<ResponseEnvelope>;
-  return "ok" in candidate && "data" in candidate && "error" in candidate;
+  return 'ok' in candidate && 'data' in candidate && 'error' in candidate;
 }
 
 function isPaginatedResponse(value: unknown): value is PaginatedResponse {
-  if (!value || typeof value !== "object") {
+  if (!value || typeof value !== 'object') {
     return false;
   }
-  return "items" in (value as Record<string, unknown>);
+  return 'items' in (value as Record<string, unknown>);
 }
 
 @Injectable()

@@ -9,6 +9,7 @@ import { AppConfig } from './config/app.config';
 import helmet from 'helmet';
 import { Logger } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -36,6 +37,29 @@ async function bootstrap() {
     app.get(LoggingInterceptor),
     new ResponseEnvelopeInterceptor(),
   );
+
+  if (appConfig.enableSwagger) {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('FAIBook API')
+      .setDescription('API documentation for FAIBook services')
+      .setVersion('1.0.0')
+      .addBearerAuth(
+        {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+        },
+        'JWT-access',
+      )
+      .build();
+
+    const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('docs', app, swaggerDocument, {
+      swaggerOptions: { persistAuthorization: true },
+    });
+
+    logger.log('Swagger docs available at /docs');
+  }
 
   const port = appConfig.port;
   await app.listen(port);

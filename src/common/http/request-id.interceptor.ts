@@ -16,9 +16,7 @@ type RequestWithHeaders = Request & {
 };
 
 @Injectable()
-export class RequestIdInterceptor
-  implements NestInterceptor<unknown, unknown>
-{
+export class RequestIdInterceptor implements NestInterceptor<unknown, unknown> {
   private readonly headerName: string;
 
   constructor(private readonly appConfig: AppConfig) {
