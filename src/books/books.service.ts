@@ -45,6 +45,14 @@ export class BooksService {
       where = and(where, eq(schema.books.isActive, query.active));
     }
 
+    if (typeof query.minPrice === 'number') {
+      where = and(where, sql`${schema.books.priceCents} >= ${query.minPrice}`);
+    }
+
+    if (typeof query.maxPrice === 'number') {
+      where = and(where, sql`${schema.books.priceCents} <= ${query.maxPrice}`);
+    }
+
     return where;
   }
 
@@ -75,7 +83,48 @@ export class BooksService {
         break;
     }
 
-    const where = this.buildWhere(query);
+    const categorySlug = query.category?.trim();
+    let resolvedCategoryId = query.categoryId;
+
+    if (!resolvedCategoryId && categorySlug) {
+      const [category] = await this.db
+        .select({ id: schema.categories.id })
+        .from(schema.categories)
+        .where(
+          and(
+            eq(schema.categories.slug, categorySlug),
+            sql`${schema.categories.deletedAt} IS NULL`,
+          ),
+        )
+        .limit(1);
+
+      if (!category) {
+        return {
+          items: [],
+          meta: { page, pageSize, total: 0, totalPages: 0 },
+        };
+      }
+
+      resolvedCategoryId = category.id;
+    }
+
+    let minPrice = query.minPrice;
+    let maxPrice = query.maxPrice;
+
+    if (
+      typeof minPrice === 'number' &&
+      typeof maxPrice === 'number' &&
+      minPrice > maxPrice
+    ) {
+      [minPrice, maxPrice] = [maxPrice, minPrice];
+    }
+
+    const where = this.buildWhere({
+      ...query,
+      categoryId: resolvedCategoryId,
+      minPrice,
+      maxPrice,
+    });
     const offset = (page - 1) * pageSize;
 
     const [rows, [{ total }]] = await Promise.all([

@@ -3,6 +3,34 @@ import { z } from 'zod';
 export const BookSortFieldEnum = z.enum(['title', 'createdAt', 'priceCents']);
 export type BookSortField = z.infer<typeof BookSortFieldEnum>;
 
+const priceFilterSchema = z
+  .union([z.string(), z.number()])
+  .optional()
+  .transform((value) => {
+    if (value === undefined || value === null) {
+      return undefined;
+    }
+
+    if (typeof value === 'number') {
+      if (Number.isNaN(value)) {
+        return undefined;
+      }
+      return Math.max(0, Math.floor(value));
+    }
+
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+
+    const parsed = Number.parseInt(trimmed, 10);
+    if (Number.isNaN(parsed)) {
+      return undefined;
+    }
+
+    return Math.max(0, parsed);
+  });
+
 export const ListBooksQuerySchema = z
   .object({
     page: z
@@ -17,8 +45,17 @@ export const ListBooksQuerySchema = z
       .pipe(z.number().int().min(1).max(100)),
     q: z.string().optional(),
     search: z.string().optional(),
+    category: z
+      .string()
+      .optional()
+      .transform((value) => {
+        const trimmed = value?.trim();
+        return trimmed ? trimmed : undefined;
+      }),
     categoryId: z.string().uuid().optional(),
     authorId: z.string().uuid().optional(),
+    minPrice: priceFilterSchema,
+    maxPrice: priceFilterSchema,
     active: z
       .string()
       .optional()
