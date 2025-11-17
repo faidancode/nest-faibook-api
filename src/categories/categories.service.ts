@@ -7,10 +7,12 @@ import type {
   ListCategoriesQuery,
   UpdateCategoryInput,
 } from "./categories.schemas";
+import type { ListBooksQuery } from "../books/books.schemas";
 import { randomUUID } from "crypto";
 
 type Db = MySql2Database<typeof schema>;
 type CategoryRow = typeof schema.categories.$inferSelect;
+type BookRow = typeof schema.books.$inferSelect;
 
 @Injectable()
 export class CategoriesService {
@@ -30,6 +32,26 @@ export class CategoriesService {
     }
 
     return where;
+  }
+
+  private resolveBookSort(sort: string) {
+    const [sortField, sortDirRaw] = sort.split(":");
+    const sortDir = sortDirRaw?.toLowerCase() === "desc" ? "desc" : "asc";
+
+    switch (sortField) {
+      case "createdAt":
+        return sortDir === "desc"
+          ? desc(schema.books.createdAt)
+          : asc(schema.books.createdAt);
+      case "priceCents":
+        return sortDir === "desc"
+          ? desc(schema.books.priceCents)
+          : asc(schema.books.priceCents);
+      default:
+        return sortDir === "desc"
+          ? desc(schema.books.title)
+          : asc(schema.books.title);
+    }
   }
 
   async findAll(query: ListCategoriesQuery) {
@@ -139,6 +161,76 @@ export class CategoriesService {
       .where(eq(schema.categories.id, id));
 
     return this.findOne(id);
+  }
+
+  async findBooksBySlug(
+    slug: string,
+    query: ListBooksQuery,
+  ): Promise<{
+    category: CategoryRow;
+    items: BookRow[];
+    meta: { page: number; pageSize: number; total: number; totalPages: number };
+  }> {
+    const [category] = await this.db
+      .select()
+      .from(schema.categories)
+      .where(
+        and(
+          eq(schema.categories.slug, slug),
+          sql`${schema.categories.deletedAt} IS NULL`,
+        ),
+      )
+      .limit(1);
+
+    if (!category) {
+      throw new NotFoundException("Category not found");
+    }
+
+    let where: any = sql`1 = 1`;
+    where = and(where, sql`${schema.books.deletedAt} IS NULL`);
+    where = and(where, eq(schema.books.categoryId, category.id));
+
+    if (query.q?.trim()) {
+      where = and(where, like(schema.books.title, `%${query.q.trim()}%`));
+    }
+
+    if (query.authorId) {
+      where = and(where, eq(schema.books.authorId, query.authorId));
+    }
+
+    if (typeof query.active === "boolean") {
+      where = and(where, eq(schema.books.isActive, query.active));
+    }
+
+    const orderBy = this.resolveBookSort(query.sort);
+    const offset = (query.page - 1) * query.pageSize;
+
+    const [items, [{ total }]] = await Promise.all([
+      this.db
+        .select()
+        .from(schema.books)
+        .where(where)
+        .orderBy(orderBy)
+        .limit(query.pageSize)
+        .offset(offset),
+      this.db
+        .select({ total: sql<number>`COUNT(*)` })
+        .from(schema.books)
+        .where(where),
+    ]);
+
+    const totalPages = Math.ceil(total / query.pageSize);
+
+    return {
+      category,
+      items,
+      meta: {
+        page: query.page,
+        pageSize: query.pageSize,
+        total,
+        totalPages,
+      },
+    };
   }
 
   async remove(id: string): Promise<void> {

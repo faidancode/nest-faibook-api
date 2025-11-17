@@ -17,6 +17,7 @@ import {
   ListCategoriesQuerySchema,
   UpdateCategorySchema,
 } from "./categories.schemas";
+import { ListBooksQuerySchema } from "../books/books.schemas";
 import { JwtAuthGuard } from "../auth/jwt.guard";
 import { RolesGuard } from "../auth/roles.guard";
 import { Roles } from "../auth/roles.decorator";
@@ -26,14 +27,14 @@ export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
   @Get()
-  async findAll(@Query() query: any) {
+  async findAll(@Query() query: unknown) {
     const parsed = ListCategoriesQuerySchema.parse(query);
     const result = await this.categoriesService.findAll(parsed);
     // Interceptor global akan bungkus jadi envelope
     return result;
   }
 
-  @Get(":id")
+  @Get("/admin/:id")
   async findOne(@Param("id") id: string) {
     const cat = await this.categoriesService.findOne(id);
     return cat;
@@ -43,7 +44,7 @@ export class CategoriesController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("ADMIN")
   @HttpCode(HttpStatus.CREATED)
-  async create(@Body() body: any) {
+  async create(@Body() body: unknown) {
     const parsed = CreateCategorySchema.parse(body);
     const created = await this.categoriesService.create(parsed);
     return created;
@@ -52,10 +53,16 @@ export class CategoriesController {
   @Patch(":id")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("ADMIN")
-  async update(@Param("id") id: string, @Body() body: any) {
+  async update(@Param("id") id: string, @Body() body: unknown) {
     const parsed = UpdateCategorySchema.parse(body);
     const updated = await this.categoriesService.update(id, parsed);
     return updated;
+  }
+
+  @Get(":slug")
+  async findBySlug(@Param("slug") slug: string, @Query() query: unknown) {
+    const parsed = ListBooksQuerySchema.parse(query);
+    return this.categoriesService.findBooksBySlug(slug, parsed);
   }
 
   @Delete(":id")

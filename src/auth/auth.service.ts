@@ -1,11 +1,23 @@
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  Inject,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type { MySql2Database } from 'drizzle-orm/mysql2';
 import { eq } from 'drizzle-orm';
 import * as schema from '../infra/drizzle/schema';
-import type { JwtPayload, LoginInput, Role } from './auth.schemas';
+import type {
+  JwtPayload,
+  LoginInput,
+  RegisterInput,
+  Role,
+} from './auth.schemas';
 import type { DrizzleDb } from '../infra/drizzle/client'; // kalau kamu expose type
 import { AppConfig } from '../config/app.config';
+import { randomUUID } from 'crypto';
+import * as bcrypt from 'bcrypt';
 
 type Db = MySql2Database<typeof schema> | DrizzleDb;
 
@@ -26,7 +38,6 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const bcrypt = await import('bcrypt');
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) {
       throw new UnauthorizedException('Invalid credentials');
@@ -74,6 +85,50 @@ export class AuthService {
     return {
       userId: user.id,
       role: user.role as Role,
+      user: {
+        name: user.name,
+        email: user.email,
+      },
+      accessToken,
+      refreshToken,
+    };
+  }
+
+  async register(dto: RegisterInput) {
+    const existing = await this.db.query.users.findFirst({
+      where: eq(schema.users.email, dto.email),
+      columns: { id: true },
+    });
+
+    if (existing) {
+      throw new ConflictException('Email already registered');
+    }
+
+    const passwordHash = await bcrypt.hash(dto.password, 10);
+
+    const userId = randomUUID();
+    const role: Role = 'CUSTOMER';
+
+    await this.db.insert(schema.users).values({
+      id: userId,
+      name: dto.name,
+      email: dto.email,
+      phone: dto.phone ?? null,
+      passwordHash,
+      role,
+    });
+
+    const accessToken = await this.signAccessToken({
+      id: userId,
+      email: dto.email,
+      role,
+    });
+
+    const refreshToken = await this.signRefreshToken({ id: userId });
+
+    return {
+      userId,
+      role,
       accessToken,
       refreshToken,
     };

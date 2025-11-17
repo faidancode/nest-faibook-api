@@ -30,11 +30,17 @@ export class BooksController {
     const parsed = ListBooksQuerySchema.parse(query);
     return this.booksService.findAll(parsed);
   }
-
-  @Get(':id')
+  
+  @Get('detail/:id')
   async findOne(@Param('id') id: string) {
     return this.booksService.findOne(id);
   }
+
+  @Get(':slug')
+  async findBySlug(@Param('slug') slug: string) {
+    return this.booksService.findBySlug(slug);
+  }
+
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -62,4 +68,3 @@ export class BooksController {
     return null;
   }
 }
-

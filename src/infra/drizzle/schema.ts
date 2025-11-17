@@ -211,6 +211,42 @@ export const cartItems = mysqlTable(
 );
 
 /* =======================================================
+   WISHLISTS
+======================================================= */
+export const wishlists = mysqlTable('wishlists', {
+  id: uuid('id').primaryKey(),
+  userId: uuid('userId')
+    .notNull()
+    .unique()
+    .references(() => users.id),
+
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow().onUpdateNow(),
+});
+
+/* =======================================================
+   WISHLIST ITEMS
+======================================================= */
+export const wishlistItems = mysqlTable(
+  'wishlist_items',
+  {
+    id: uuid('id').primaryKey(),
+    wishlistId: uuid('wishlistId')
+      .notNull()
+      .references(() => wishlists.id),
+    productId: uuid('productId')
+      .notNull()
+      .references(() => books.id),
+
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt').notNull().defaultNow().onUpdateNow(),
+  },
+  (table) => [
+    uniqueIndex('uniq_wishlist_product').on(table.wishlistId, table.productId),
+  ],
+);
+
+/* =======================================================
    ORDERS
 ======================================================= */
 export const orders = mysqlTable(

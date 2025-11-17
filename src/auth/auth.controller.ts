@@ -15,6 +15,8 @@ import {
   type LoginInput,
   RefreshMobileSchema,
   type RefreshMobileInput,
+  RegisterSchema,
+  type RegisterInput,
 } from './auth.schemas';
 import { ok, fail } from '../common/http/response';
 import { JwtAuthGuard } from './jwt.guard';
@@ -32,6 +34,52 @@ function resolveClientType(headerValue?: string): ClientType {
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Post('register')
+  @HttpCode(HttpStatus.CREATED)
+  async register(
+    @Headers('x-client-type') clientHeader: string | undefined,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const clientType = resolveClientType(clientHeader);
+    const parsed: RegisterInput = RegisterSchema.parse(body);
+
+    const { accessToken, refreshToken, role, userId } =
+      await this.authService.register(parsed);
+
+    if (clientType === 'web') {
+      const isProd = process.env.NODE_ENV === 'production';
+
+      res.cookie('accessToken', accessToken, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: isProd,
+        maxAge: 15 * 60 * 1000,
+        path: '/',
+      });
+
+      res.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: isProd,
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        path: '/',
+      });
+
+      return ok({
+        userId,
+        role,
+      });
+    }
+
+    return ok({
+      userId,
+      role,
+      accessToken,
+      refreshToken,
+    });
+  }
+
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(
@@ -42,7 +90,7 @@ export class AuthController {
     const clientType = resolveClientType(clientHeader);
 
     const parsed: LoginInput = LoginSchema.parse(body);
-    const { accessToken, refreshToken, role, userId } =
+    const { accessToken, refreshToken, role, userId, user } =
       await this.authService.login(parsed);
 
     if (clientType === 'web') {
@@ -69,6 +117,10 @@ export class AuthController {
       // Body bisa minimal (frontend web opsional pakai accessToken dari body)
       return ok({
         userId,
+        user:{
+          name: user.name, // kosongkan saja
+          email: user.email,
+        },
         role,
       });
     }

@@ -114,6 +114,25 @@ export class BooksService {
     return row;
   }
 
+  async findBySlug(slug: string): Promise<BookRow> {
+    const [row] = await this.db
+      .select()
+      .from(schema.books)
+      .where(
+        and(
+          eq(schema.books.slug, slug),
+          sql`${schema.books.deletedAt} IS NULL`,
+        ),
+      )
+      .limit(1);
+
+    if (!row) {
+      throw new NotFoundException('Book not found');
+    }
+
+    return row;
+  }
+
   async create(input: CreateBookInput): Promise<BookRow> {
     const id = randomUUID();
     const slug = input.slug ?? this.slugify(input.title);
@@ -181,4 +200,3 @@ export class BooksService {
       .where(eq(schema.books.id, id));
   }
 }
-

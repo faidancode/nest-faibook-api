@@ -12,6 +12,8 @@ import { AppConfigModule } from './config/app-config.module';
 import { RequestIdInterceptor } from './common/http/request-id.interceptor';
 import { LoggingInterceptor } from './common/http/logging.interceptor';
 import { BooksModule } from './books/books.module';
+import { AuthModule } from './auth/auth.module';
+import { WishlistsModule } from './wishlists/wishlists.module';
 
 @Module({
   imports: [
@@ -22,10 +24,11 @@ import { BooksModule } from './books/books.module';
     }),
     AppConfigModule,
     DrizzleModule, // pakai env DB
+    AuthModule,
     HealthModule,
     CategoriesModule,
     BooksModule,
-    BooksModule,
+    WishlistsModule,
   ],
   providers: [
     RateLimitService,
