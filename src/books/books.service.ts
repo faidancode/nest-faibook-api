@@ -27,8 +27,10 @@ export class BooksService {
     let where: any = sql`1 = 1`;
     where = and(where, sql`${schema.books.deletedAt} IS NULL`);
 
-    if (query.q?.trim()) {
-      where = and(where, like(schema.books.title, `%${query.q.trim()}%`));
+    const searchTerm = query.q?.trim();
+
+    if (searchTerm) {
+      where = and(where, like(schema.books.title, `%${searchTerm}%`));
     }
 
     if (query.categoryId) {

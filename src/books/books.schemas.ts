@@ -3,34 +3,40 @@ import { z } from 'zod';
 export const BookSortFieldEnum = z.enum(['title', 'createdAt', 'priceCents']);
 export type BookSortField = z.infer<typeof BookSortFieldEnum>;
 
-export const ListBooksQuerySchema = z.object({
-  page: z
-    .string()
-    .optional()
-    .transform((v) => (v ? parseInt(v, 10) : 1))
-    .pipe(z.number().int().min(1)),
-  pageSize: z
-    .string()
-    .optional()
-    .transform((v) => (v ? parseInt(v, 10) : 10))
-    .pipe(z.number().int().min(1).max(100)),
-  q: z.string().optional(),
-  categoryId: z.string().uuid().optional(),
-  authorId: z.string().uuid().optional(),
-  active: z
-    .string()
-    .optional()
-    .transform((v) => {
-      if (v === undefined) return undefined;
-      if (v === 'true') return true;
-      if (v === 'false') return false;
-      return undefined;
-    }),
-  sort: z
-    .string()
-    .optional()
-    .transform((v) => v ?? 'title:asc'),
-});
+export const ListBooksQuerySchema = z
+  .object({
+    page: z
+      .string()
+      .optional()
+      .transform((v) => (v ? parseInt(v, 10) : 1))
+      .pipe(z.number().int().min(1)),
+    pageSize: z
+      .string()
+      .optional()
+      .transform((v) => (v ? parseInt(v, 10) : 10))
+      .pipe(z.number().int().min(1).max(100)),
+    q: z.string().optional(),
+    search: z.string().optional(),
+    categoryId: z.string().uuid().optional(),
+    authorId: z.string().uuid().optional(),
+    active: z
+      .string()
+      .optional()
+      .transform((v) => {
+        if (v === undefined) return undefined;
+        if (v === 'true') return true;
+        if (v === 'false') return false;
+        return undefined;
+      }),
+    sort: z
+      .string()
+      .optional()
+      .transform((v) => v ?? 'title:asc'),
+  })
+  .transform(({ search, ...rest }) => ({
+    ...rest,
+    q: rest.q ?? search,
+  }));
 
 export type ListBooksQuery = z.infer<typeof ListBooksQuerySchema>;
 
@@ -56,4 +62,3 @@ export type CreateBookInput = z.infer<typeof CreateBookSchema>;
 
 export const UpdateBookSchema = CreateBookSchema.partial();
 export type UpdateBookInput = z.infer<typeof UpdateBookSchema>;
-
