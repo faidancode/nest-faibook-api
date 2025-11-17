@@ -14,6 +14,7 @@ import { LoggingInterceptor } from './common/http/logging.interceptor';
 import { BooksModule } from './books/books.module';
 import { AuthModule } from './auth/auth.module';
 import { WishlistsModule } from './wishlists/wishlists.module';
+import { AddressesModule } from './addresses/addresses.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { WishlistsModule } from './wishlists/wishlists.module';
     CategoriesModule,
     BooksModule,
     WishlistsModule,
+    AddressesModule,
   ],
   providers: [
     RateLimitService,

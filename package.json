@@ -22,7 +22,8 @@
     "db:generate": "drizzle-kit generate:mysql",
     "db:studio": "drizzle-kit studio",
     "seed:categories": "ts-node src/scripts/seed-categories.ts",
-    "seed:books": "ts-node src/scripts/seed-books.ts"
+    "seed:books": "ts-node src/scripts/seed-books.ts",
+    "seed:addresses": "ts-node src/scripts/seed-addresses.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
