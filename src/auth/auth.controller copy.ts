@@ -7,7 +7,6 @@ import {
   Post,
   Req,
   Res,
-  UseGuards,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
@@ -21,6 +20,7 @@ import {
 } from './auth.schemas';
 import { ok, fail } from '../common/http/response';
 import { JwtAuthGuard } from './jwt.guard';
+import { UseGuards } from '@nestjs/common';
 
 type ClientType = 'web' | 'mobile';
 
@@ -44,7 +44,7 @@ export class AuthController {
     const clientType = resolveClientType(clientHeader);
     const parsed: RegisterInput = RegisterSchema.parse(body);
 
-    const { accessToken, refreshToken, role, userId, user } =
+    const { accessToken, refreshToken, role, userId } =
       await this.authService.register(parsed);
 
     if (clientType === 'web') {
@@ -69,21 +69,12 @@ export class AuthController {
       return ok({
         userId,
         role,
-        user: {
-          name: user.name,
-          email: user.email,
-        },
       });
     }
 
-    // Mobile: return tokens in body
     return ok({
       userId,
       role,
-      user: {
-        name: user.name,
-        email: user.email,
-      },
       accessToken,
       refreshToken,
     });
@@ -97,15 +88,15 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const clientType = resolveClientType(clientHeader);
+
     const parsed: LoginInput = LoginSchema.parse(body);
-    
     const { accessToken, refreshToken, role, userId, user } =
       await this.authService.login(parsed);
 
     if (clientType === 'web') {
       const isProd = process.env.NODE_ENV === 'production';
 
-      // Set cookies untuk web
+      // Access token cookie (boleh lebih pendek)
       res.cookie('accessToken', accessToken, {
         httpOnly: true,
         sameSite: 'lax',
@@ -114,6 +105,7 @@ export class AuthController {
         path: '/',
       });
 
+      // Refresh token cookie
       res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
         sameSite: 'lax',
@@ -122,25 +114,21 @@ export class AuthController {
         path: '/',
       });
 
-      // Response tanpa token
+      // Body bisa minimal (frontend web opsional pakai accessToken dari body)
       return ok({
         userId,
-        user: {
-          name: user.name,
+        user:{
+          name: user.name, // kosongkan saja
           email: user.email,
         },
         role,
       });
     }
 
-    // Mobile: return tokens in body
+    // clientType === "mobile"
     return ok({
       userId,
       role,
-      user: {
-        name: user.name,
-        email: user.email,
-      },
       accessToken,
       refreshToken,
     });
@@ -157,25 +145,22 @@ export class AuthController {
     const clientType = resolveClientType(clientHeader);
 
     if (clientType === 'web') {
-      // Web: ambil refreshToken dari cookie
       const cookies = req.cookies as Record<string, unknown> | undefined;
       const refreshToken =
         typeof cookies?.refreshToken === 'string'
           ? cookies.refreshToken
           : undefined;
-
       if (!refreshToken) {
         return fail('NO_REFRESH_TOKEN', 'Missing refresh token');
       }
 
-      const result = await this.authService.verifyAndIssueAccessByRefreshToken(
-        refreshToken,
-      );
+      const { accessToken, role, userId } =
+        await this.authService.verifyAndIssueAccessByRefreshToken(refreshToken);
 
       const isProd = process.env.NODE_ENV === 'production';
 
-      // Update both tokens in cookies so the browser keeps them in sync
-      res.cookie('accessToken', result.accessToken, {
+      // Update accessToken cookie
+      res.cookie('accessToken', accessToken, {
         httpOnly: true,
         sameSite: 'lax',
         secure: isProd,
@@ -183,35 +168,25 @@ export class AuthController {
         path: '/',
       });
 
-      res.cookie('refreshToken', result.refreshToken, {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: isProd,
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-        path: '/',
-      });
-
       return ok({
-        userId: result.userId,
-        role: result.role,
-        user: result.user,
-        accessToken: result.accessToken,
-        refreshToken: result.refreshToken,
+        userId,
+        role,
       });
     }
 
-    // Mobile: ambil refreshToken dari body
+    // clientType === "mobile"
     const parsed: RefreshMobileInput = RefreshMobileSchema.parse(body);
-    const result = await this.authService.verifyAndIssueAccessByRefreshToken(
-      parsed.refreshToken,
-    );
+    const { accessToken, role, userId } =
+      await this.authService.verifyAndIssueAccessByRefreshToken(
+        parsed.refreshToken,
+      );
 
+    // Untuk simple case, kita tidak rotate refreshToken
     return ok({
-      userId: result.userId,
-      role: result.role,
-      user: result.user,
-      accessToken: result.accessToken,
-      refreshToken: result.refreshToken,
+      userId,
+      role,
+      accessToken,
+      // refreshToken: parsed.refreshToken, // bisa ikut dikembalikan kalau mau
     });
   }
 
@@ -230,7 +205,7 @@ export class AuthController {
       res.clearCookie('refreshToken', { path: '/' });
     }
 
-    // Mobile: client hapus token secara lokal
+    // mobile: tidak ada cookie, client cukup hapus token lokal
     return ok({ loggedOut: true });
   }
 }

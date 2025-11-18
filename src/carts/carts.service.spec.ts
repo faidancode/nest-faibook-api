@@ -12,6 +12,17 @@ describe('CartsService', () => {
     limit: jest.fn().mockResolvedValue(rows),
   });
 
+  const createSelectWithLimitBuilder = (rows: any[]) => ({
+    from: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    limit: jest.fn().mockResolvedValue(rows),
+  });
+
+  const createSelectWithWhereBuilder = (rows: any[]) => ({
+    from: jest.fn().mockReturnThis(),
+    where: jest.fn().mockResolvedValue(rows),
+  });
+
   beforeEach(async () => {
     db = {
       select: jest.fn(),
@@ -48,6 +59,7 @@ describe('CartsService', () => {
   it('creates a cart with items', async () => {
     const insertCartValues = jest.fn().mockResolvedValue(undefined);
     const insertItemsValues = jest.fn().mockResolvedValue(undefined);
+    db.select.mockReturnValueOnce(createSelectWithLimitBuilder([]));
     db.insert
       .mockReturnValueOnce({ values: insertCartValues })
       .mockReturnValueOnce({ values: insertItemsValues });
@@ -60,7 +72,7 @@ describe('CartsService', () => {
       userId: 'user-1',
       items: [
         {
-          productId: 'product-1',
+          bookId: 'product-1',
           quantity: 2,
           priceCentsAtAdd: 1500,
         },
@@ -73,13 +85,70 @@ describe('CartsService', () => {
     expect(insertItemsValues).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({
-          productId: 'product-1',
+          bookId: 'product-1',
           quantity: 2,
           priceCentsAtAdd: 1500,
         }),
       ]),
     );
     expect(created).toEqual({ id: 'cart-1' });
+    findOneSpy.mockRestore();
+  });
+
+  it('merges items when cart already exists', async () => {
+    const now = new Date();
+    const existingCart = { id: 'cart-1', userId: 'user-1', createdAt: now, updatedAt: now };
+    const existingItem = {
+      id: 'item-1',
+      cartId: 'cart-1',
+      bookId: 'product-1',
+      quantity: 2,
+      priceCentsAtAdd: 1500,
+    };
+
+    db.select
+      .mockReturnValueOnce(createSelectWithLimitBuilder([existingCart]))
+      .mockReturnValueOnce(createSelectWithWhereBuilder([existingItem]));
+
+    const updateItemWhere = jest.fn().mockResolvedValue(undefined);
+    const updateItemSet = jest.fn().mockReturnValue({ where: updateItemWhere });
+    const updateCartWhere = jest.fn().mockResolvedValue(undefined);
+    const updateCartSet = jest.fn().mockReturnValue({ where: updateCartWhere });
+    db.update
+      .mockReturnValueOnce({ set: updateItemSet })
+      .mockReturnValueOnce({ set: updateCartSet });
+
+    const insertValues = jest.fn().mockResolvedValue(undefined);
+    db.insert.mockReturnValueOnce({ values: insertValues });
+
+    const findOneSpy = jest
+      .spyOn(service, 'findOne')
+      .mockResolvedValue({ id: 'cart-1' } as any);
+
+    await service.create({
+      userId: 'user-1',
+      items: [
+        { bookId: 'product-1', quantity: 3, priceCentsAtAdd: 2000 },
+        { bookId: 'product-2', quantity: 1, priceCentsAtAdd: 1200 },
+      ],
+    });
+
+    expect(updateItemSet).toHaveBeenCalledWith(
+      expect.objectContaining({ quantity: 3, priceCentsAtAdd: 2000 }),
+    );
+    expect(insertValues).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          bookId: 'product-2',
+          quantity: 1,
+          priceCentsAtAdd: 1200,
+        }),
+      ]),
+    );
+    expect(updateCartSet).toHaveBeenCalledWith(
+      expect.objectContaining({ updatedAt: expect.any(Date) }),
+    );
+    expect(findOneSpy).toHaveBeenCalledWith('cart-1');
     findOneSpy.mockRestore();
   });
 

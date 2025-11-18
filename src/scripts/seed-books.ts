@@ -12,13 +12,6 @@ function ensureEnvLoaded() {
   loadEnv({ path: resolve(cwd, '.env') });
 }
 
-const COVER_URLS = [
-  'https://image.gramedia.net/rs:fit:0:0/plain/https://cdn.gramedia.com/uploads/picture_meta/2023/10/30/debsfyx6tcwnvbwdteeakv.jpg',
-  'https://image.gramedia.net/rs:fit:0:0/plain/https://cdn.gramedia.com/uploads/items/9786020366517_Cantik-Itu-Luka-Hard-Cover---Limited-Edition.jpg',
-  'https://image.gramedia.net/rs:fit:0:0/plain/https://cdn.gramedia.com/uploads/items/9786022912828_animal_farm_new.jpg',
-  'https://image.gramedia.net/rs:fit:0:0/plain/https://cdn.gramedia.com/uploads/picture_meta/2024/1/20/qvjtc65vbzmexfegzrgs7u.jpg',
-  'https://image.gramedia.net/rs:fit:0:0/plain/https://cdn.gramedia.com/uploads/picture_meta/2024/1/22/bvsftgsrjjckhjupelyegg.jpg',
-];
 
 const ADJECTIVES = [
   'Rahasia',
@@ -137,7 +130,7 @@ async function main() {
       );
     }
 
-    const totalBooks = 1000;
+    const totalBooks = 10000;
     type BookInsert = typeof schema.books.$inferInsert;
     const booksPayload: BookInsert[] = [];
 
@@ -166,7 +159,7 @@ async function main() {
         discountPriceCents:
           discount && discount > 0 && discount < price ? discount : null,
         stock: randomInt(5, 200),
-        coverUrl: randomFrom(COVER_URLS),
+        coverUrl: "",
         description: `${randomFrom(DESCRIPTION_SNIPPETS)} Judul ini mengajak pembaca mengikuti ${title.toLowerCase()}.`,
         pages: randomInt(120, 620),
         language: randomFrom(LANGUAGES),

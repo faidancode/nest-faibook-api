@@ -126,6 +126,10 @@ describe('AuthService', () => {
     expect(result).toEqual({
       userId: expect.any(String),
       role: 'CUSTOMER',
+      user: {
+        name: 'John Doe',
+        email: 'john@example.com',
+      },
       accessToken: 'access-token',
       refreshToken: 'refresh-token',
     });
@@ -163,10 +167,13 @@ describe('AuthService', () => {
     jwt.verifyAsync.mockResolvedValue({ sub: 'user-1' });
     db.query.users.findFirst.mockResolvedValueOnce({
       id: 'user-1',
+      name: 'John Doe',
       email: 'john@example.com',
       role: 'CUSTOMER',
     });
-    jwt.signAsync.mockResolvedValue('new-access-token');
+    jwt.signAsync
+      .mockResolvedValueOnce('new-access-token')
+      .mockResolvedValueOnce('new-refresh-token');
 
     const result = await service.verifyAndIssueAccessByRefreshToken(
       'refresh-token',
@@ -175,15 +182,28 @@ describe('AuthService', () => {
     expect(jwt.verifyAsync).toHaveBeenCalledWith('refresh-token', {
       secret: jwtConfig.refreshSecret,
     });
-    expect(jwt.signAsync).toHaveBeenCalledWith({
+    expect(jwt.signAsync).toHaveBeenNthCalledWith(1, {
       sub: 'user-1',
       email: 'john@example.com',
       role: 'CUSTOMER',
     });
+    expect(jwt.signAsync).toHaveBeenNthCalledWith(
+      2,
+      { sub: 'user-1' },
+      {
+        secret: jwtConfig.refreshSecret,
+        expiresIn: jwtConfig.refreshExpiresIn,
+      },
+    );
     expect(result).toEqual({
       userId: 'user-1',
       role: 'CUSTOMER',
+      user: {
+        name: 'John Doe',
+        email: 'john@example.com',
+      },
       accessToken: 'new-access-token',
+      refreshToken: 'new-refresh-token',
     });
   });
 });

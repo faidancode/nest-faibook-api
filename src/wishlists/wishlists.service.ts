@@ -95,7 +95,7 @@ export class WishlistsService {
         input.items.map((item) => ({
           id: randomUUID(),
           wishlistId: id,
-          productId: item.productId,
+          bookId: item.bookId,
         })),
       );
     }
@@ -124,7 +124,7 @@ export class WishlistsService {
           input.items.map((item) => ({
             id: randomUUID(),
             wishlistId: id,
-            productId: item.productId,
+            bookId: item.bookId,
           })),
         );
       }

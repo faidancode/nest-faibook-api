@@ -14,7 +14,7 @@ import type {
   RegisterInput,
   Role,
 } from './auth.schemas';
-import type { DrizzleDb } from '../infra/drizzle/client';
+import type { DrizzleDb } from '../infra/drizzle/client'; // kalau kamu expose type
 import { AppConfig } from '../config/app.config';
 import { randomUUID } from 'crypto';
 import * as bcrypt from 'bcrypt';
@@ -51,6 +51,7 @@ export class AuthService {
     email: string;
     role: Role;
   }) {
+    const jwtCfg = this.appConfig.jwt;
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
@@ -128,22 +129,17 @@ export class AuthService {
     return {
       userId,
       role,
-      user: {
-        name: dto.name,
-        email: dto.email,
-      },
       accessToken,
       refreshToken,
     };
   }
 
-  // Method untuk refresh token (dipanggil dari controller)
-  async refreshAccessToken(rawRefreshToken: string) {
+  async verifyAndIssueAccessByRefreshToken(refreshToken: string) {
     const jwtCfg = this.appConfig.jwt;
 
     let payload: { sub: string };
     try {
-      payload = await this.jwt.verifyAsync<{ sub: string }>(rawRefreshToken, {
+      payload = await this.jwt.verifyAsync<{ sub: string }>(refreshToken, {
         secret: jwtCfg.refreshSecret,
       });
     } catch {
@@ -163,21 +159,12 @@ export class AuthService {
       email: user.email,
       role: user.role as Role,
     });
-    const refreshToken = await this.signRefreshToken({ id: user.id });
 
     return {
       userId: user.id,
       role: user.role as Role,
-      user: {
-        name: user.name,
-        email: user.email,
-      },
       accessToken,
-      refreshToken,
+      // optional: bisa juga rotate refreshToken di sini, untuk sekarang kita biarin sama
     };
-  }
-
-  async verifyAndIssueAccessByRefreshToken(refreshToken: string) {
-    return this.refreshAccessToken(refreshToken);
   }
 }

@@ -3,7 +3,7 @@ import { z } from 'zod';
 const WishlistItemBaseSchema = z.object({
   id: z.uuid(),
   wishlistId: z.uuid(),
-  productId: z.uuid(),
+  bookId: z.uuid(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 });
@@ -17,7 +17,7 @@ export const WishlistBaseSchema = z.object({
 });
 
 const WishlistItemInputSchema = z.object({
-  productId: z.uuid(),
+  bookId: z.uuid(),
 });
 
 export const CreateWishlistSchema = z.object({

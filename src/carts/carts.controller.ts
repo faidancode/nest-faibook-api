@@ -8,15 +8,14 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/jwt.guard';
 import { CartsService } from './carts.service';
 import { CreateCartSchema, UpdateCartSchema } from './schemas/carts.schemas';
-import { JwtAuthGuard } from '../auth/jwt.guard';
-import { RolesGuard } from '../auth/roles.guard';
-import { Roles } from '../auth/roles.decorator';
 
-@Controller('carts')
+@Controller('v1/carts')
 export class CartsController {
   constructor(private readonly cartsService: CartsService) {}
 
@@ -25,14 +24,18 @@ export class CartsController {
     return this.cartsService.findAll();
   }
 
+  @Get('/by-user')
+  async getByUser(@Query('userId') userId: string) {
+    return this.cartsService.getCartByUserId(userId);
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string) {
     return this.cartsService.findOne(id);
   }
 
   @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() body: unknown) {
     const parsed = CreateCartSchema.parse(body);
@@ -40,20 +43,17 @@ export class CartsController {
   }
 
   @Patch(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @UseGuards(JwtAuthGuard)
   async update(@Param('id') id: string, @Body() body: unknown) {
     const parsed = UpdateCartSchema.parse(body);
     return this.cartsService.update(id, parsed);
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param('id') id: string) {
     await this.cartsService.remove(id);
     return null;
   }
 }
-

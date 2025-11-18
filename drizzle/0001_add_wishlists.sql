@@ -11,11 +11,11 @@ CREATE TABLE `wishlists` (
 CREATE TABLE `wishlist_items` (
   `id` VARCHAR(36) NOT NULL,
   `wishlistId` VARCHAR(36) NOT NULL,
-  `productId` VARCHAR(36) NOT NULL,
+  `bookId` VARCHAR(36) NOT NULL,
   `createdAt` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updatedAt` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT `wishlist_items_id` PRIMARY KEY (`id`),
   CONSTRAINT `wishlist_items_wishlistId_fk` FOREIGN KEY (`wishlistId`) REFERENCES `wishlists` (`id`),
-  CONSTRAINT `wishlist_items_productId_fk` FOREIGN KEY (`productId`) REFERENCES `books` (`id`),
-  CONSTRAINT `uniq_wishlist_product` UNIQUE KEY (`wishlistId`, `productId`)
+  CONSTRAINT `wishlist_items_bookId_fk` FOREIGN KEY (`bookId`) REFERENCES `books` (`id`),
+  CONSTRAINT `uniq_wishlist_product` UNIQUE KEY (`wishlistId`, `bookId`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

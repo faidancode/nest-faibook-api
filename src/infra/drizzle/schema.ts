@@ -157,7 +157,7 @@ export const reviews = mysqlTable(
     userId: uuid('userId')
       .notNull()
       .references(() => users.id),
-    productId: uuid('productId')
+    bookId: uuid('bookId')
       .notNull()
       .references(() => books.id),
     rating: int('rating').notNull(),
@@ -167,8 +167,8 @@ export const reviews = mysqlTable(
     ...timestamps,
   },
   (table) => [
-    uniqueIndex('uniq_reviews_user_product').on(table.userId, table.productId),
-    index('idx_reviews_product_rating').on(table.productId, table.rating),
+    uniqueIndex('uniq_reviews_user_product').on(table.userId, table.bookId),
+    index('idx_reviews_product_rating').on(table.bookId, table.rating),
   ],
 );
 
@@ -196,7 +196,7 @@ export const cartItems = mysqlTable(
     cartId: uuid('cartId')
       .notNull()
       .references(() => carts.id),
-    productId: uuid('productId')
+    bookId: uuid('bookId')
       .notNull()
       .references(() => books.id),
     quantity: int('quantity').notNull(),
@@ -206,7 +206,7 @@ export const cartItems = mysqlTable(
     updatedAt: timestamp('updatedAt').notNull().defaultNow().onUpdateNow(),
   },
   (table) => [
-    uniqueIndex('uniq_cart_product').on(table.cartId, table.productId),
+    uniqueIndex('uniq_cart_product').on(table.cartId, table.bookId),
   ],
 );
 
@@ -234,7 +234,7 @@ export const wishlistItems = mysqlTable(
     wishlistId: uuid('wishlistId')
       .notNull()
       .references(() => wishlists.id),
-    productId: uuid('productId')
+    bookId: uuid('bookId')
       .notNull()
       .references(() => books.id),
 
@@ -242,7 +242,7 @@ export const wishlistItems = mysqlTable(
     updatedAt: timestamp('updatedAt').notNull().defaultNow().onUpdateNow(),
   },
   (table) => [
-    uniqueIndex('uniq_wishlist_product').on(table.wishlistId, table.productId),
+    uniqueIndex('uniq_wishlist_product').on(table.wishlistId, table.bookId),
   ],
 );
 
@@ -295,7 +295,7 @@ export const orderItems = mysqlTable(
     orderId: uuid('orderId')
       .notNull()
       .references(() => orders.id),
-    productId: uuid('productId')
+    bookId: uuid('bookId')
       .notNull()
       .references(() => books.id),
 

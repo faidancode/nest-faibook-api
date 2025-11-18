@@ -40,7 +40,7 @@ describe('CartsController', () => {
       userId: '00000000-0000-0000-0000-000000000000',
       items: [
         {
-          productId: '11111111-1111-1111-1111-111111111111',
+          bookId: '11111111-1111-1111-8111-111111111111',
           quantity: '2',
           priceCentsAtAdd: '1200',
         },
@@ -54,7 +54,7 @@ describe('CartsController', () => {
         userId: '00000000-0000-0000-0000-000000000000',
         items: [
           expect.objectContaining({
-            productId: '11111111-1111-1111-1111-111111111111',
+            bookId: '11111111-1111-1111-8111-111111111111',
             quantity: 2,
             priceCentsAtAdd: 1200,
           }),
@@ -73,4 +73,3 @@ describe('CartsController', () => {
     expect(result).toBeNull();
   });
 });
-

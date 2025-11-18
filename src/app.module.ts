@@ -15,6 +15,7 @@ import { BooksModule } from './books/books.module';
 import { AuthModule } from './auth/auth.module';
 import { WishlistsModule } from './wishlists/wishlists.module';
 import { AddressesModule } from './addresses/addresses.module';
+import { CartModule } from './carts/carts.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { AddressesModule } from './addresses/addresses.module';
     BooksModule,
     WishlistsModule,
     AddressesModule,
+    CartModule
   ],
   providers: [
     RateLimitService,

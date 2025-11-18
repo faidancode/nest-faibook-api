@@ -32,6 +32,10 @@ describe('AuthController', () => {
     service.register.mockResolvedValue({
       userId: '00000000-0000-0000-0000-000000000001',
       role: 'CUSTOMER',
+      user: {
+        name: 'John',
+        email: 'john@example.com',
+      },
       accessToken: 'access',
       refreshToken: 'refresh',
     });
@@ -57,6 +61,10 @@ describe('AuthController', () => {
       data: {
         userId: '00000000-0000-0000-0000-000000000001',
         role: 'CUSTOMER',
+        user: {
+          name: 'John',
+          email: 'john@example.com',
+        },
       },
       meta: null,
       error: null,
@@ -67,6 +75,10 @@ describe('AuthController', () => {
     service.register.mockResolvedValue({
       userId: '00000000-0000-0000-0000-000000000002',
       role: 'CUSTOMER',
+      user: {
+        name: 'Jane',
+        email: 'jane@example.com',
+      },
       accessToken: 'access-mobile',
       refreshToken: 'refresh-mobile',
     });
@@ -91,6 +103,10 @@ describe('AuthController', () => {
       data: {
         userId: '00000000-0000-0000-0000-000000000002',
         role: 'CUSTOMER',
+        user: {
+          name: 'Jane',
+          email: 'jane@example.com',
+        },
         accessToken: 'access-mobile',
         refreshToken: 'refresh-mobile',
       },
@@ -103,7 +119,12 @@ describe('AuthController', () => {
     service.verifyAndIssueAccessByRefreshToken.mockResolvedValue({
       userId: '00000000-0000-0000-0000-000000000003',
       role: 'CUSTOMER',
+      user: {
+        name: 'John',
+        email: 'john@example.com',
+      },
       accessToken: 'new-access',
+      refreshToken: 'next-refresh',
     });
 
     const req = {
@@ -128,11 +149,24 @@ describe('AuthController', () => {
         httpOnly: true,
       }),
     );
+    expect(res.cookie).toHaveBeenCalledWith(
+      'refreshToken',
+      'next-refresh',
+      expect.objectContaining({
+        httpOnly: true,
+      }),
+    );
     expect(result).toEqual({
       ok: true,
       data: {
         userId: '00000000-0000-0000-0000-000000000003',
         role: 'CUSTOMER',
+        user: {
+          name: 'John',
+          email: 'john@example.com',
+        },
+        accessToken: 'new-access',
+        refreshToken: 'next-refresh',
       },
       meta: null,
       error: null,
