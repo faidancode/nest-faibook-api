@@ -126,6 +126,17 @@ async function main() {
       );
     }
 
+    const authors = await db
+      .select({ id: schema.authors.id })
+      .from(schema.authors)
+      .where(sql`${schema.authors.deletedAt} IS NULL`);
+
+    if (authors.length === 0) {
+      throw new Error(
+        'No authors found. Please seed authors before seeding books.',
+      );
+    }
+
     const totalBooks = 1000;
     type BookInsert = typeof schema.books.$inferInsert;
     const booksPayload: BookInsert[] = [];
@@ -142,12 +153,14 @@ async function main() {
           ? price - randomInt(5000, Math.floor(price * 0.3))
           : null;
 
+      const author = randomFrom(authors);
+
       booksPayload.push({
         id: randomUUID(),
         title,
         slug,
         categoryId: category.id,
-        authorId: null,
+        authorId: author.id,
         isbn: randomIsbn(),
         priceCents: price,
         discountPriceCents:

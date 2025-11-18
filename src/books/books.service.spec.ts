@@ -8,6 +8,7 @@ describe('BooksService', () => {
 
   const createSelectBuilder = (rows: any[]) => ({
     from: jest.fn().mockReturnThis(),
+    leftJoin: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
     limit: jest.fn().mockReturnThis(),
@@ -21,6 +22,7 @@ describe('BooksService', () => {
 
   const createFindOneBuilder = (rows: any[]) => ({
     from: jest.fn().mockReturnThis(),
+    leftJoin: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     limit: jest.fn().mockResolvedValue(rows),
   });
@@ -54,6 +56,7 @@ describe('BooksService', () => {
       {
         id: 'book-1',
         title: 'Book A',
+        authorName: 'John Writer',
         createdAt: new Date(),
         updatedAt: new Date(),
       },
@@ -93,7 +96,7 @@ describe('BooksService', () => {
     db.insert.mockReturnValue({ values: insertValues });
     const findOneSpy = jest
       .spyOn(service, 'findOne')
-      .mockResolvedValue({ id: 'book-1', slug: 'book-a' } as any);
+      .mockResolvedValue({ id: 'book-1', slug: 'book-a', authorName: null } as any);
 
     const created = await service.create({
       title: 'Book A',
@@ -116,7 +119,7 @@ describe('BooksService', () => {
     expect(insertValues).toHaveBeenCalledWith(
       expect.objectContaining({ slug: 'book-a', title: 'Book A' }),
     );
-    expect(created).toEqual({ id: 'book-1', slug: 'book-a' });
+    expect(created).toEqual({ id: 'book-1', slug: 'book-a', authorName: null });
     findOneSpy.mockRestore();
   });
 
@@ -138,6 +141,7 @@ describe('BooksService', () => {
       publisher: null,
       publishedAt: null,
       isActive: true,
+      authorName: null,
     };
     const updatedRow = { ...existing, title: 'New Title' };
 
@@ -168,7 +172,7 @@ describe('BooksService', () => {
   it('soft deletes a book', async () => {
     const findOneSpy = jest
       .spyOn(service, 'findOne')
-      .mockResolvedValue({ id: 'book-1' } as any);
+      .mockResolvedValue({ id: 'book-1', authorName: null } as any);
 
     const whereMock = jest.fn().mockResolvedValue(undefined);
     const setMock = jest.fn().mockReturnValue({ where: whereMock });
@@ -183,4 +187,3 @@ describe('BooksService', () => {
     findOneSpy.mockRestore();
   });
 });
-

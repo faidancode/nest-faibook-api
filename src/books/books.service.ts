@@ -11,6 +11,32 @@ import { randomUUID } from 'crypto';
 
 type Db = MySql2Database<typeof schema>;
 type BookRow = typeof schema.books.$inferSelect;
+type BookWithAuthorName = BookRow & { authorName: string | null };
+
+const bookWithAuthorSelection = {
+  id: schema.books.id,
+  title: schema.books.title,
+  slug: schema.books.slug,
+  categoryId: schema.books.categoryId,
+  authorId: schema.books.authorId,
+  isbn: schema.books.isbn,
+  priceCents: schema.books.priceCents,
+  discountPriceCents: schema.books.discountPriceCents,
+  stock: schema.books.stock,
+  coverUrl: schema.books.coverUrl,
+  description: schema.books.description,
+  pages: schema.books.pages,
+  language: schema.books.language,
+  publisher: schema.books.publisher,
+  publishedAt: schema.books.publishedAt,
+  ratingAvg: schema.books.ratingAvg,
+  ratingCount: schema.books.ratingCount,
+  isActive: schema.books.isActive,
+  createdAt: schema.books.createdAt,
+  updatedAt: schema.books.updatedAt,
+  deletedAt: schema.books.deletedAt,
+  authorName: schema.authors.name,
+};
 
 @Injectable()
 export class BooksService {
@@ -129,8 +155,12 @@ export class BooksService {
 
     const [rows, [{ total }]] = await Promise.all([
       this.db
-        .select()
+        .select(bookWithAuthorSelection)
         .from(schema.books)
+        .leftJoin(
+          schema.authors,
+          eq(schema.books.authorId, schema.authors.id),
+        )
         .where(where)
         .orderBy(orderBy)
         .limit(pageSize)
@@ -144,15 +174,19 @@ export class BooksService {
     const totalPages = Math.ceil(total / pageSize);
 
     return {
-      items: rows,
+      items: rows as BookWithAuthorName[],
       meta: { page, pageSize, total, totalPages },
     };
   }
 
-  async findOne(id: string): Promise<BookRow> {
+  async findOne(id: string): Promise<BookWithAuthorName> {
     const [row] = await this.db
-      .select()
+      .select(bookWithAuthorSelection)
       .from(schema.books)
+      .leftJoin(
+        schema.authors,
+        eq(schema.books.authorId, schema.authors.id),
+      )
       .where(
         and(eq(schema.books.id, id), sql`${schema.books.deletedAt} IS NULL`),
       )
@@ -162,13 +196,17 @@ export class BooksService {
       throw new NotFoundException('Book not found');
     }
 
-    return row;
+    return row as BookWithAuthorName;
   }
 
-  async findBySlug(slug: string): Promise<BookRow> {
+  async findBySlug(slug: string): Promise<BookWithAuthorName> {
     const [row] = await this.db
-      .select()
+      .select(bookWithAuthorSelection)
       .from(schema.books)
+      .leftJoin(
+        schema.authors,
+        eq(schema.books.authorId, schema.authors.id),
+      )
       .where(
         and(
           eq(schema.books.slug, slug),
@@ -181,10 +219,10 @@ export class BooksService {
       throw new NotFoundException('Book not found');
     }
 
-    return row;
+    return row as BookWithAuthorName;
   }
 
-  async create(input: CreateBookInput): Promise<BookRow> {
+  async create(input: CreateBookInput): Promise<BookWithAuthorName> {
     const id = randomUUID();
     const slug = input.slug ?? this.slugify(input.title);
 
@@ -210,7 +248,7 @@ export class BooksService {
     return this.findOne(id);
   }
 
-  async update(id: string, input: UpdateBookInput): Promise<BookRow> {
+  async update(id: string, input: UpdateBookInput): Promise<BookWithAuthorName> {
     const existing = await this.findOne(id);
     const nextSlug =
       input.slug ??
