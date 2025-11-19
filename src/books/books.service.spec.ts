@@ -27,6 +27,13 @@ describe('BooksService', () => {
     limit: jest.fn().mockResolvedValue(rows),
   });
 
+  const createWishlistCheckBuilder = (rows: any[]) => ({
+    from: jest.fn().mockReturnThis(),
+    innerJoin: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    limit: jest.fn().mockResolvedValue(rows),
+  });
+
   beforeEach(async () => {
     db = {
       select: jest.fn(),
@@ -89,6 +96,28 @@ describe('BooksService', () => {
     await expect(service.findOne('missing')).rejects.toThrow(
       NotFoundException,
     );
+  });
+
+  it('marks the book as wishlisted when user already saved it', async () => {
+    const row = { id: 'book-1', authorName: null };
+    db.select
+      .mockReturnValueOnce(createFindOneBuilder([row]))
+      .mockReturnValueOnce(createWishlistCheckBuilder([{ id: 'wishlist-item' }]));
+
+    const result = await service.findOne('book-1', { userId: 'user-1' });
+
+    expect(result.isWishlisted).toBe(true);
+  });
+
+  it('returns not wishlisted when user has no record', async () => {
+    const row = { id: 'book-1', authorName: null };
+    db.select
+      .mockReturnValueOnce(createFindOneBuilder([row]))
+      .mockReturnValueOnce(createWishlistCheckBuilder([]));
+
+    const result = await service.findOne('book-1', { userId: 'user-1' });
+
+    expect(result.isWishlisted).toBe(false);
   });
 
   it('creates a book and generates slug from title', async () => {

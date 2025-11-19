@@ -11,7 +11,10 @@ import { randomUUID } from 'crypto';
 
 type Db = MySql2Database<typeof schema>;
 type BookRow = typeof schema.books.$inferSelect;
-type BookWithAuthorName = BookRow & { authorName: string | null };
+type BookWithAuthorName = BookRow & {
+  authorName: string | null;
+  isWishlisted?: boolean;
+};
 
 const bookWithAuthorSelection = {
   id: schema.books.id,
@@ -179,7 +182,10 @@ export class BooksService {
     };
   }
 
-  async findOne(id: string): Promise<BookWithAuthorName> {
+  async findOne(
+    id: string,
+    options?: { userId?: string },
+  ): Promise<BookWithAuthorName> {
     const [row] = await this.db
       .select(bookWithAuthorSelection)
       .from(schema.books)
@@ -196,7 +202,28 @@ export class BooksService {
       throw new NotFoundException('Book not found');
     }
 
-    return row as BookWithAuthorName;
+    let isWishlisted = false;
+
+    if (options?.userId) {
+      const [wishlistItem] = await this.db
+        .select({ id: schema.wishlistItems.id })
+        .from(schema.wishlists)
+        .innerJoin(
+          schema.wishlistItems,
+          eq(schema.wishlists.id, schema.wishlistItems.wishlistId),
+        )
+        .where(
+          and(
+            eq(schema.wishlists.userId, options.userId),
+            eq(schema.wishlistItems.bookId, id),
+          ),
+        )
+        .limit(1);
+
+      isWishlisted = Boolean(wishlistItem);
+    }
+
+    return { ...(row as BookWithAuthorName), isWishlisted };
   }
 
   async findBySlug(slug: string): Promise<BookWithAuthorName> {

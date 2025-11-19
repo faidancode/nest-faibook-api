@@ -9,8 +9,10 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { BooksService } from './books.service';
 import {
   CreateBookSchema,
@@ -20,6 +22,8 @@ import {
 import { JwtAuthGuard } from '../auth/jwt.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import type { JwtPayload } from '../auth/auth.schemas';
+import { OptionalJwtAuthGuard } from '../auth/optional-jwt.guard';
 
 @Controller('v1/books')
 export class BooksController {
@@ -32,8 +36,12 @@ export class BooksController {
   }
   
   @Get('detail/:id')
-  async findOne(@Param('id') id: string) {
-    return this.booksService.findOne(id);
+  @UseGuards(OptionalJwtAuthGuard)
+  async findOne(@Param('id') id: string, @Req() req: Request) {
+    const currentUser = req.user as JwtPayload | null;
+    return this.booksService.findOne(id, {
+      userId: currentUser?.sub,
+    });
   }
 
   @Get(':slug')

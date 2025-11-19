@@ -59,8 +59,30 @@ export class WishlistsService {
     }
 
     return wishlists.map((wishlist) =>
-      this.buildWishlistOutput(wishlist, itemsByWishlist.get(wishlist.id) ?? []),
+      this.buildWishlistOutput(
+        wishlist,
+        itemsByWishlist.get(wishlist.id) ?? [],
+      ),
     );
+  }
+
+  async getWishlistByUserId(userId: string): Promise<WishlistOutput> {
+    const [wishlist] = await this.db
+      .select()
+      .from(schema.wishlists)
+      .where(eq(schema.wishlists.userId, userId))
+      .limit(1);
+
+    if (!wishlist) {
+      return this.create({ userId, items: [] });
+    }
+
+    const items = await this.db
+      .select()
+      .from(schema.wishlistItems)
+      .where(eq(schema.wishlistItems.wishlistId, wishlist.id));
+
+    return this.buildWishlistOutput(wishlist, items);
   }
 
   async findOne(id: string): Promise<WishlistOutput> {
@@ -83,6 +105,35 @@ export class WishlistsService {
   }
 
   async create(input: CreateWishlistInput): Promise<WishlistOutput> {
+    const [existingWishlist] = await this.db
+      .select()
+      .from(schema.wishlists)
+      .where(eq(schema.wishlists.userId, input.userId))
+      .limit(1);
+
+    if (existingWishlist) {
+      if (input.items.length > 0) {
+        await this.db
+          .delete(schema.wishlistItems)
+          .where(eq(schema.wishlistItems.wishlistId, existingWishlist.id));
+
+        await this.db.insert(schema.wishlistItems).values(
+          input.items.map((item) => ({
+            id: randomUUID(),
+            wishlistId: existingWishlist.id,
+            bookId: item.bookId,
+          })),
+        );
+      }
+
+      await this.db
+        .update(schema.wishlists)
+        .set({ updatedAt: new Date() })
+        .where(eq(schema.wishlists.id, existingWishlist.id));
+
+      return this.findOne(existingWishlist.id);
+    }
+
     const id = randomUUID();
 
     await this.db.insert(schema.wishlists).values({
@@ -103,7 +154,10 @@ export class WishlistsService {
     return this.findOne(id);
   }
 
-  async update(id: string, input: UpdateWishlistInput): Promise<WishlistOutput> {
+  async update(
+    id: string,
+    input: UpdateWishlistInput,
+  ): Promise<WishlistOutput> {
     const existing = await this.findOne(id);
 
     await this.db

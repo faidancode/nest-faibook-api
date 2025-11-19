@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { WishlistsService } from './wishlists.service';
@@ -19,7 +20,7 @@ import { JwtAuthGuard } from '../auth/jwt.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 
-@Controller('wishlists')
+@Controller('v1/wishlists')
 export class WishlistsController {
   constructor(private readonly wishlistsService: WishlistsService) {}
 
@@ -28,14 +29,19 @@ export class WishlistsController {
     return this.wishlistsService.findAll();
   }
 
-  @Get(':id')
-  async findOne(@Param('id') id: string) {
-    return this.wishlistsService.findOne(id);
+  @Get('/by-user')
+  @UseGuards(JwtAuthGuard)
+  async getByUser(@Query('userId') userId: string) {
+    return this.wishlistsService.getWishlistByUserId(userId);
   }
+
+  // @Get(':id')
+  // async findOne(@Param('id') id: string) {
+  //   return this.wishlistsService.findOne(id);
+  // }
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() body: unknown) {
     const parsed = CreateWishlistSchema.parse(body);
@@ -44,7 +50,6 @@ export class WishlistsController {
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
   async update(@Param('id') id: string, @Body() body: unknown) {
     const parsed = UpdateWishlistSchema.parse(body);
     return this.wishlistsService.update(id, parsed);
@@ -52,7 +57,6 @@ export class WishlistsController {
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param('id') id: string) {
     await this.wishlistsService.remove(id);

@@ -60,12 +60,26 @@ describe('BooksController', () => {
     expect(query).toBe(payload);
   });
 
-  it('returns a single book', async () => {
+  it('returns a single book with wishlist context when user is authenticated', async () => {
+    service.findOne.mockResolvedValue({ id: 'book-1' } as any);
+    const req = { user: { sub: 'user-1' } };
+
+    const book = await controller.findOne('book-1', req as any);
+
+    expect(service.findOne).toHaveBeenCalledWith('book-1', {
+      userId: 'user-1',
+    });
+    expect(book).toEqual({ id: 'book-1' });
+  });
+
+  it('returns a single book for anonymous user', async () => {
     service.findOne.mockResolvedValue({ id: 'book-1' } as any);
 
-    const book = await controller.findOne('book-1');
+    const book = await controller.findOne('book-1', {} as any);
 
-    expect(service.findOne).toHaveBeenCalledWith('book-1');
+    expect(service.findOne).toHaveBeenCalledWith('book-1', {
+      userId: undefined,
+    });
     expect(book).toEqual({ id: 'book-1' });
   });
 
