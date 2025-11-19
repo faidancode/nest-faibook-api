@@ -167,8 +167,8 @@ export const reviews = mysqlTable(
     ...timestamps,
   },
   (table) => [
-    uniqueIndex('uniq_reviews_user_product').on(table.userId, table.bookId),
-    index('idx_reviews_product_rating').on(table.bookId, table.rating),
+    uniqueIndex('uniq_reviews_user_book').on(table.userId, table.bookId),
+    index('idx_reviews_book_rating').on(table.bookId, table.rating),
   ],
 );
 
@@ -206,7 +206,7 @@ export const cartItems = mysqlTable(
     updatedAt: timestamp('updatedAt').notNull().defaultNow().onUpdateNow(),
   },
   (table) => [
-    uniqueIndex('uniq_cart_product').on(table.cartId, table.bookId),
+    uniqueIndex('uniq_cart_book').on(table.cartId, table.bookId),
   ],
 );
 
@@ -242,7 +242,7 @@ export const wishlistItems = mysqlTable(
     updatedAt: timestamp('updatedAt').notNull().defaultNow().onUpdateNow(),
   },
   (table) => [
-    uniqueIndex('uniq_wishlist_product').on(table.wishlistId, table.bookId),
+    uniqueIndex('uniq_wishlist_book').on(table.wishlistId, table.bookId),
   ],
 );
 
@@ -276,6 +276,8 @@ export const orders = mysqlTable(
     paidAt: datetime('paidAt'),
     cancelledAt: datetime('cancelledAt'),
     completedAt: datetime('completedAt'),
+    receiptNo: varchar("receipt_no", { length: 50 })
+    .unique(),
 
     ...timestamps,
   },

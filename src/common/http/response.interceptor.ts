@@ -27,7 +27,8 @@ function isPaginatedResponse(value: unknown): value is PaginatedResponse {
   if (!value || typeof value !== 'object') {
     return false;
   }
-  return 'items' in (value as Record<string, unknown>);
+  const record = value as Record<string, unknown>;
+  return 'items' in record && 'meta' in record;
 }
 
 @Injectable()

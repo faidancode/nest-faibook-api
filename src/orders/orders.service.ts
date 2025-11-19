@@ -1,0 +1,717 @@
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
+import type { MySql2Database, MySql2Transaction } from 'drizzle-orm/mysql2';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { randomUUID } from 'crypto';
+import * as schema from '../infra/drizzle/schema';
+import type {
+  AdminUpdateStatusInput,
+  AddressSnapshot,
+  CheckoutOrderInput,
+  CustomerUpdateStatusInput,
+  ListOrdersQuery,
+  OrderOutput,
+  OrderStatus,
+  OrderItemOutput,
+  PaymentStatus,
+  UpdatePaymentStatusInput,
+} from './schemas/orders.schemas';
+import {
+  ORDERS_PAYMENT,
+  type OrdersPaymentIntegration,
+} from './orders.payment';
+import { MidtransService } from '../midtrans/midtrans.service';
+
+type Db = MySql2Database<typeof schema>;
+type Tx = MySql2Transaction<typeof schema, any>;
+type DbExecutor = Db | Tx;
+
+type OrderRow = typeof schema.orders.$inferSelect;
+type OrderItemRow = typeof schema.orderItems.$inferSelect;
+type AddressRow = typeof schema.addresses.$inferSelect;
+
+type CartWithItems = {
+  cartId: string;
+  items: Array<{
+    id: string;
+    bookId: string;
+    quantity: number;
+    priceCentsAtAdd: number;
+    bookTitle: string;
+    bookStock: number;
+    bookAuthor?: string | null;
+  }>;
+};
+
+type CheckoutPaymentPayload = {
+  snapToken: string;
+  redirectUrl?: string;
+};
+
+type CheckoutResult = {
+  order: OrderOutput;
+  payment: CheckoutPaymentPayload | null;
+};
+
+type CustomerProfile = {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+};
+
+const paymentStatusTransitions: Record<PaymentStatus, PaymentStatus[]> = {
+  UNPAID: ['PAID', 'REFUNDED'],
+  PAID: ['REFUNDED'],
+  REFUNDED: [],
+};
+
+@Injectable()
+export class OrdersService {
+  private readonly idempotencyCache = new Map<string, string>();
+
+  constructor(
+    @Inject('DRIZZLE') private readonly db: Db,
+    @Optional() private readonly midtransService?: MidtransService,
+    @Optional()
+    @Inject(ORDERS_PAYMENT)
+    private readonly paymentIntegration?: OrdersPaymentIntegration,
+  ) {}
+
+  private generateOrderNumber() {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const suffix = randomUUID().slice(0, 8).toUpperCase();
+    return `ORD-${yyyy}${mm}${dd}-${suffix}`;
+  }
+
+  private buildAddressSnapshot(address: AddressRow): AddressSnapshot {
+    return {
+      id: address.id,
+      label: address.label,
+      recipientName: address.recipientName,
+      recipientPhone: address.recipientPhone,
+      street: address.street,
+      subdistrict: address.subdistrict ?? null,
+      district: address.district ?? null,
+      city: address.city ?? null,
+      province: address.province ?? null,
+      postalCode: address.postalCode ?? null,
+    };
+  }
+
+  private mapOrder(row: OrderRow, items: OrderItemRow[]): OrderOutput {
+    return {
+      id: row.id,
+      orderNumber: row.orderNumber ?? '',
+      userId: row.userId,
+      status: row.status as OrderStatus,
+      paymentMethod: row.paymentMethod,
+      paymentStatus: row.paymentStatus as OrderOutput['paymentStatus'],
+      addressSnapshot: row.addressSnapshot as AddressSnapshot,
+      subtotalCents: row.subtotalCents,
+      discountCents: row.discountCents,
+      shippingCents: row.shippingCents,
+      totalCents: row.totalCents,
+      note: row.note ?? null,
+      placedAt: row.placedAt,
+      paidAt: row.paidAt ?? null,
+      cancelledAt: row.cancelledAt ?? null,
+      completedAt: row.completedAt ?? null,
+      receiptNo: row.receiptNo ?? null,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt ?? null,
+      deletedAt: row.deletedAt ?? null,
+      items: items.map<OrderItemOutput>((item) => ({
+        id: item.id,
+        orderId: item.orderId,
+        bookId: item.bookId,
+        titleSnapshot: item.titleSnapshot,
+        unitPriceCents: item.unitPriceCents,
+        quantity: item.quantity,
+        totalCents: item.totalCents,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+      })),
+    };
+  }
+
+  private splitFullName(name?: string | null): {
+    firstName?: string;
+    lastName?: string;
+  } {
+    if (!name) return {};
+    const trimmed = name.trim();
+    if (!trimmed) return {};
+    const parts = trimmed.split(/\s+/);
+    const firstName = parts.shift();
+    const lastName = parts.length > 0 ? parts.join(' ') : undefined;
+    return { firstName: firstName ?? undefined, lastName };
+  }
+
+  private async loadCustomerProfile(userId: string): Promise<CustomerProfile> {
+    const [user] = await this.db
+      .select({
+        name: schema.users.name,
+        email: schema.users.email,
+        phone: schema.users.phone,
+      })
+      .from(schema.users)
+      .where(eq(schema.users.id, userId))
+      .limit(1);
+
+    if (!user) {
+      return {};
+    }
+
+    const { firstName, lastName } = this.splitFullName(user.name);
+    return {
+      firstName,
+      lastName,
+      email: user.email ?? undefined,
+      phone: user.phone ?? undefined,
+    };
+  }
+
+  private async fetchCartWithItems(
+    tx: Tx,
+    userId: string,
+  ): Promise<CartWithItems> {
+    const [cart] = await tx
+      .select()
+      .from(schema.carts)
+      .where(eq(schema.carts.userId, userId))
+      .limit(1);
+
+    if (!cart) {
+      throw new BadRequestException('Cart not found for user');
+    }
+
+    const items = await tx
+      .select({
+        id: schema.cartItems.id,
+        cartId: schema.cartItems.cartId,
+        bookId: schema.cartItems.bookId,
+        quantity: schema.cartItems.quantity,
+        priceCentsAtAdd: schema.cartItems.priceCentsAtAdd,
+        bookTitle: schema.books.title,
+        bookStock: schema.books.stock,
+        bookAuthor: schema.authors.name,
+      })
+      .from(schema.cartItems)
+      .leftJoin(
+        schema.books,
+        eq(schema.cartItems.bookId, schema.books.id),
+      )
+      .leftJoin(
+        schema.authors,
+        eq(schema.books.authorId, schema.authors.id),
+      )
+      .where(eq(schema.cartItems.cartId, cart.id));
+
+    if (items.length === 0) {
+      throw new BadRequestException('Cart is empty');
+    }
+
+    const normalized = items.map((item) => {
+      if (!item.bookTitle || item.bookStock === null || item.bookStock === undefined) {
+        throw new BadRequestException('Cart contains invalid product');
+      }
+
+      return {
+        id: item.id,
+        cartId: item.cartId,
+        bookId: item.bookId,
+        quantity: item.quantity,
+        priceCentsAtAdd: item.priceCentsAtAdd,
+        bookTitle: item.bookTitle,
+        bookStock: item.bookStock,
+        bookAuthor: item.bookAuthor,
+      };
+    });
+
+    return {
+      cartId: cart.id,
+      items: normalized,
+    };
+  }
+
+  private async getOrderItemsMap(
+    executor: DbExecutor,
+    orderIds: string[],
+  ): Promise<Map<string, OrderItemRow[]>> {
+    const map = new Map<string, OrderItemRow[]>();
+    if (orderIds.length === 0) {
+      return map;
+    }
+
+    const rows = await executor
+      .select()
+      .from(schema.orderItems)
+      .where(inArray(schema.orderItems.orderId, orderIds));
+
+    for (const row of rows) {
+      const bucket = map.get(row.orderId);
+      if (bucket) {
+        bucket.push(row);
+      } else {
+        map.set(row.orderId, [row]);
+      }
+    }
+
+    return map;
+  }
+
+  private buildListWhere(query: ListOrdersQuery) {
+    let where: any = sql`${schema.orders.deletedAt} IS NULL`;
+
+    if (query.status) {
+      where = and(where, eq(schema.orders.status, query.status));
+    }
+
+    if (query.userId) {
+      where = and(where, eq(schema.orders.userId, query.userId));
+    }
+
+    if (query.paymentStatus) {
+      where = and(
+        where,
+        eq(schema.orders.paymentStatus, query.paymentStatus),
+      );
+    }
+
+    return where;
+  }
+
+  private async findOrderRow(
+    orderId: string,
+    userId?: string,
+  ): Promise<OrderRow> {
+    const where = and(
+      eq(schema.orders.id, orderId),
+      sql`${schema.orders.deletedAt} IS NULL`,
+      userId ? eq(schema.orders.userId, userId) : sql`1 = 1`,
+    );
+
+    const [row] = await this.db
+      .select()
+      .from(schema.orders)
+      .where(where)
+      .limit(1);
+
+    if (!row) {
+      throw new NotFoundException('Order not found');
+    }
+
+    return row;
+  }
+
+  private ensureStatus(
+    current: OrderStatus,
+    expected: OrderStatus,
+    message: string,
+  ) {
+    if (current !== expected) {
+      throw new BadRequestException(message);
+    }
+  }
+
+  async checkout(
+    input: CheckoutOrderInput,
+    options?: { idempotencyKey?: string },
+  ): Promise<CheckoutResult> {
+    const trimmedKey = options?.idempotencyKey?.trim();
+    const cacheKey =
+      trimmedKey && trimmedKey.length > 0
+        ? `${input.userId}:${trimmedKey}`
+        : null;
+
+    if (cacheKey) {
+      const existing = this.idempotencyCache.get(cacheKey);
+      if (existing) {
+        const cachedOrder = await this.getOrderDetails(existing, input.userId);
+        return { order: cachedOrder, payment: null };
+      }
+    }
+
+    const now = new Date();
+    const orderId = randomUUID();
+    const orderNumber = this.generateOrderNumber();
+
+    const customerProfile = await this.loadCustomerProfile(input.userId);
+    let paymentPayload: CheckoutPaymentPayload | null = null;
+
+    await this.db.transaction(async (tx) => {
+      const cart = await this.fetchCartWithItems(tx, input.userId);
+
+      const [address] = await tx
+        .select()
+        .from(schema.addresses)
+        .where(
+          and(
+            eq(schema.addresses.id, input.addressId),
+            eq(schema.addresses.userId, input.userId),
+            sql`${schema.addresses.deletedAt} IS NULL`,
+          ),
+        )
+        .limit(1);
+
+      if (!address) {
+        throw new BadRequestException('Address not found for user');
+      }
+
+      const addressSnapshot = this.buildAddressSnapshot(address);
+      let subtotalCents = 0;
+
+      const stockAdjustments: Array<{
+        bookId: string;
+        nextStock: number;
+      }> = [];
+      const orderItemsPayload: typeof schema.orderItems.$inferInsert[] = [];
+
+      for (const item of cart.items) {
+        if (item.bookStock < item.quantity) {
+          throw new BadRequestException(
+            `Insufficient stock for ${item.bookTitle}`,
+          );
+        }
+
+        const totalItemCents = item.priceCentsAtAdd * item.quantity;
+        subtotalCents += totalItemCents;
+
+        stockAdjustments.push({
+          bookId: item.bookId,
+          nextStock: item.bookStock - item.quantity,
+        });
+
+        orderItemsPayload.push({
+          id: randomUUID(),
+          orderId,
+          bookId: item.bookId,
+          titleSnapshot: item.bookTitle,
+          unitPriceCents: item.priceCentsAtAdd,
+          quantity: item.quantity,
+          totalCents: totalItemCents,
+        });
+      }
+
+      const discountCents = Math.max(0, input.discountCents ?? 0);
+      const shippingCents = Math.max(0, input.shippingCents ?? 0);
+      const totalCents = Math.max(
+        0,
+        subtotalCents - discountCents + shippingCents,
+      );
+      const midtransItems = orderItemsPayload.map((item) => ({
+        id: item.bookId,
+        price: item.unitPriceCents,
+        quantity: item.quantity,
+        name: item.titleSnapshot.slice(0, 50),
+      }));
+      if (shippingCents > 0) {
+        midtransItems.push({
+          id: 'shipping-fee',
+          price: shippingCents,
+          quantity: 1,
+          name: 'Shipping Fee',
+        });
+      }
+      if (discountCents > 0) {
+        midtransItems.push({
+          id: 'discount',
+          price: -discountCents,
+          quantity: 1,
+          name: 'Discount',
+        });
+      }
+
+      const initialStatus: OrderStatus =
+        (input.initialStatus as OrderStatus) ?? 'PENDING';
+      const paymentStatus =
+        initialStatus === 'PAID'
+          ? ('PAID' as OrderOutput['paymentStatus'])
+          : ('UNPAID' as OrderOutput['paymentStatus']);
+
+      if (this.midtransService) {
+        const addressName = this.splitFullName(
+          addressSnapshot.recipientName,
+        );
+        paymentPayload = await this.midtransService.createTransactionToken({
+          orderId: orderNumber,
+          grossAmount: totalCents,
+          customer: {
+            firstName:
+              customerProfile.firstName ?? addressName.firstName ?? undefined,
+            lastName:
+              customerProfile.lastName ?? addressName.lastName ?? undefined,
+            email: customerProfile.email ?? undefined,
+            phone:
+              customerProfile.phone ??
+              addressSnapshot.recipientPhone ??
+              undefined,
+          },
+          items: midtransItems,
+        });
+      }
+
+      await tx.insert(schema.orders).values({
+        id: orderId,
+        orderNumber,
+        userId: input.userId,
+        status: initialStatus,
+        paymentMethod: input.paymentMethod ?? 'VA',
+        paymentStatus,
+        addressSnapshot,
+        subtotalCents,
+        discountCents,
+        shippingCents,
+        totalCents,
+        note: input.note ?? null,
+        placedAt: now,
+        paidAt: initialStatus === 'PAID' ? now : null,
+      });
+
+      await tx.insert(schema.orderItems).values(orderItemsPayload);
+
+      for (const adj of stockAdjustments) {
+        await tx
+          .update(schema.books)
+          .set({
+            stock: adj.nextStock,
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.books.id, adj.bookId));
+      }
+
+      await tx
+        .delete(schema.cartItems)
+        .where(eq(schema.cartItems.cartId, cart.cartId));
+
+      await tx
+        .update(schema.carts)
+        .set({ updatedAt: new Date() })
+        .where(eq(schema.carts.id, cart.cartId));
+    });
+
+    const order = await this.getOrderDetails(orderId, input.userId);
+
+    if (cacheKey) {
+      this.idempotencyCache.set(cacheKey, order.id);
+    }
+
+    if (this.paymentIntegration) {
+      await this.paymentIntegration.handleAfterCheckout(order, {
+        idempotencyKey: trimmedKey ?? undefined,
+      });
+    }
+
+    return { order, payment: paymentPayload };
+  }
+
+  async getOrdersByUserId(userId: string): Promise<OrderOutput[]> {
+    const rows = await this.db
+      .select()
+      .from(schema.orders)
+      .where(
+        and(
+          eq(schema.orders.userId, userId),
+          sql`${schema.orders.deletedAt} IS NULL`,
+        ),
+      )
+      .orderBy(desc(schema.orders.placedAt));
+
+    const itemsByOrder = await this.getOrderItemsMap(
+      this.db,
+      rows.map((row) => row.id),
+    );
+
+    return rows.map((row) =>
+      this.mapOrder(row, itemsByOrder.get(row.id) ?? []),
+    );
+  }
+
+  async getOrderDetails(
+    orderId: string,
+    userId?: string,
+  ): Promise<OrderOutput> {
+    const order = await this.findOrderRow(orderId, userId);
+    const items = await this.db
+      .select()
+      .from(schema.orderItems)
+      .where(eq(schema.orderItems.orderId, orderId));
+
+    return this.mapOrder(order, items);
+  }
+
+  async getAllOrders(query: ListOrdersQuery): Promise<{
+    items: OrderOutput[];
+    meta: { page: number; pageSize: number; total: number; totalPages: number };
+  }> {
+    const where = this.buildListWhere(query);
+    const offset = (query.page - 1) * query.pageSize;
+
+    const [rows, [{ total }]] = await Promise.all([
+      this.db
+        .select()
+        .from(schema.orders)
+        .where(where)
+        .orderBy(desc(schema.orders.placedAt))
+        .limit(query.pageSize)
+        .offset(offset),
+      this.db
+        .select({ total: sql<number>`COUNT(*)` })
+        .from(schema.orders)
+        .where(where),
+    ]);
+
+    const itemsByOrder = await this.getOrderItemsMap(
+      this.db,
+      rows.map((row) => row.id),
+    );
+
+    const orders = rows.map((row) =>
+      this.mapOrder(row, itemsByOrder.get(row.id) ?? []),
+    );
+
+    return {
+      items: orders,
+      meta: {
+        page: query.page,
+        pageSize: query.pageSize,
+        total,
+        totalPages: Math.ceil(total / query.pageSize),
+      },
+    };
+  }
+
+  async updateCustomerStatus(
+    orderId: string,
+    userId: string,
+    input: CustomerUpdateStatusInput,
+  ): Promise<OrderOutput> {
+    const order = await this.findOrderRow(orderId, userId);
+    this.ensureStatus(
+      order.status as OrderStatus,
+      'SHIPPED',
+      'Only shipped orders can be marked as delivered',
+    );
+
+    if (input.nextStatus !== 'DELIVERED') {
+      throw new BadRequestException('Invalid target status');
+    }
+
+    await this.db
+      .update(schema.orders)
+      .set({
+        status: 'DELIVERED',
+        completedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.orders.id, orderId));
+
+    return this.getOrderDetails(orderId, userId);
+  }
+
+  async updateAdminStatus(
+    orderId: string,
+    input: AdminUpdateStatusInput,
+  ): Promise<OrderOutput> {
+    const order = await this.findOrderRow(orderId);
+    const currentStatus = order.status as OrderStatus;
+
+    if (input.nextStatus === 'PROCESSING') {
+      this.ensureStatus(
+        currentStatus,
+        'PAID',
+        'Order must be in PAID status before processing',
+      );
+
+      await this.db
+        .update(schema.orders)
+        .set({
+          status: 'PROCESSING',
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.orders.id, orderId));
+    } else if (input.nextStatus === 'SHIPPED') {
+      this.ensureStatus(
+        currentStatus,
+        'PROCESSING',
+        'Order must be PROCESSING before shipping',
+      );
+
+      await this.db
+        .update(schema.orders)
+        .set({
+          status: 'SHIPPED',
+          receiptNo: input.receiptNo ?? order.receiptNo ?? null,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.orders.id, orderId));
+    } else {
+      throw new BadRequestException('Unsupported status transition');
+    }
+
+    return this.getOrderDetails(orderId);
+  }
+
+  async updatePaymentStatus(
+    orderId: string,
+    input: UpdatePaymentStatusInput,
+  ): Promise<OrderOutput> {
+    const order = await this.findOrderRow(orderId);
+    const currentStatus = order.paymentStatus as PaymentStatus;
+    const nextStatus = input.paymentStatus;
+
+    if (currentStatus === nextStatus) {
+      return this.getOrderDetails(orderId);
+    }
+
+    const allowed = paymentStatusTransitions[currentStatus] ?? [];
+    if (!allowed.includes(nextStatus)) {
+      throw new BadRequestException(
+        `Cannot transition payment from ${currentStatus} to ${nextStatus}`,
+      );
+    }
+
+    const now = new Date();
+    const payload: Partial<typeof schema.orders.$inferInsert> = {
+      paymentStatus: nextStatus,
+      updatedAt: now,
+    };
+
+    if (nextStatus === 'PAID') {
+      payload.paidAt = input.paidAt ?? order.paidAt ?? now;
+      if (order.status === 'PENDING') {
+        payload.status = 'PAID';
+      }
+    } else if (nextStatus === 'REFUNDED') {
+      payload.cancelledAt = input.cancelledAt ?? order.cancelledAt ?? now;
+      if (order.status === 'PENDING' || order.status === 'PAID') {
+        payload.status = 'CANCELLED';
+      }
+    } else if (nextStatus === 'UNPAID') {
+      payload.paidAt = null;
+      if (order.status === 'PAID') {
+        payload.status = 'PENDING';
+      }
+    }
+
+    if (typeof input.note === 'string') {
+      payload.note = input.note;
+    }
+
+    await this.db
+      .update(schema.orders)
+      .set(payload)
+      .where(eq(schema.orders.id, orderId));
+
+    return this.getOrderDetails(orderId);
+  }
+}

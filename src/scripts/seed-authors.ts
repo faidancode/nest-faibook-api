@@ -18,52 +18,57 @@ const POPULAR_AUTHORS: AuthorSeed[] = [
   {
     name: 'J.K. Rowling',
     slug: 'jk-rowling',
-    bio: 'Penulis seri Harry Potter yang fenomenal dan menginspirasi generasi pembaca.',
-  },
-  {
-    name: 'Haruki Murakami',
-    slug: 'haruki-murakami',
-    bio: 'Penulis Jepang dengan gaya surealis penuh simbol dan tema kesepian.',
-  },
-  {
-    name: 'Andrea Hirata',
-    slug: 'andrea-hirata',
-    bio: 'Penulis Indonesia yang dikenal lewat tetralogi Laskar Pelangi.',
-  },
-  {
-    name: 'Tere Liye',
-    slug: 'tere-liye',
-    bio: 'Penulis populer dengan karya fiksi dan motivasi yang dekat dengan kehidupan sehari-hari.',
-  },
-  {
-    name: 'Paulo Coelho',
-    slug: 'paulo-coelho',
-    bio: 'Penulis asal Brasil dengan novel spiritual inspiratif seperti The Alchemist.',
+    bio: 'British author behind the Harry Potter series that inspired readers worldwide.',
   },
   {
     name: 'George R.R. Martin',
     slug: 'george-rr-martin',
-    bio: 'Penulis saga fantasi epik A Song of Ice and Fire.',
+    bio: 'Creator of the epic fantasy saga A Song of Ice and Fire and the world of Westeros.',
   },
   {
     name: 'Stephen King',
     slug: 'stephen-king',
-    bio: 'Raja novel horor modern dengan puluhan karya laris dunia.',
+    bio: 'Prolific master of horror, suspense, and supernatural thrillers.',
   },
   {
     name: 'Neil Gaiman',
     slug: 'neil-gaiman',
-    bio: 'Penulis lintas genre yang kaya imajinasi dengan karya seperti American Gods.',
+    bio: 'Genre-bending storyteller known for American Gods, Coraline, and Sandman.',
   },
   {
     name: 'Agatha Christie',
     slug: 'agatha-christie',
-    bio: 'Ratu misteri yang menciptakan tokoh Hercule Poirot dan Miss Marple.',
+    bio: 'The queen of mystery and creator of Hercule Poirot and Miss Marple.',
   },
   {
-    name: 'Dee Lestari',
-    slug: 'dee-lestari',
-    bio: 'Penulis Indonesia dengan karya puitis dan futuristik seperti seri Supernova.',
+    name: 'Brandon Sanderson',
+    slug: 'brandon-sanderson',
+    bio: 'Fantasy writer famous for the Cosmere universe and intricate magic systems.',
+  },
+  {
+    name: 'Rick Riordan',
+    slug: 'rick-riordan',
+    bio: 'Author of Percy Jackson and other middle-grade adventures inspired by mythology.',
+  },
+  {
+    name: 'Colleen Hoover',
+    slug: 'colleen-hoover',
+    bio: 'Contemporary romance and new adult writer with emotionally driven bestsellers.',
+  },
+  {
+    name: 'Patrick Rothfuss',
+    slug: 'patrick-rothfuss',
+    bio: 'Fantasy author known for The Kingkiller Chronicle and lyrical prose.',
+  },
+  {
+    name: 'Yuval Noah Harari',
+    slug: 'yuval-noah-harari',
+    bio: 'Historian and philosopher known for Sapiens, Homo Deus, and accessible non-fiction.',
+  },
+  {
+    name: 'Jane Austen',
+    slug: 'jane-austen',
+    bio: 'Classic English novelist chronicling society, manners, and relationships.',
   },
 ];
 

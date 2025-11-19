@@ -6,7 +6,7 @@ import { resolve } from 'path';
 import { randomUUID } from 'crypto';
 import * as schema from '../infra/drizzle/schema';
 
-const USER_ID = '31662729-88f4-46ad-aa2d-1191b305d962';
+const USER_ID = '19dd58cb-56fb-4c0e-85bd-9765735d6159';
 
 type AddressSeed = {
   label: string;

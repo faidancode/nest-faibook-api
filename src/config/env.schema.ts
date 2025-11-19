@@ -53,6 +53,14 @@ export const EnvSchema = z.object({
     .transform((v) => parseInt(v, 10))
     .default(10),
 
+  // Midtrans
+  MIDTRANS_IS_PRODUCTION: z
+    .string()
+    .optional()
+    .transform((v) => v === 'true'),
+  MIDTRANS_SERVER_KEY: z.string().min(1),
+  MIDTRANS_CLIENT_KEY: z.string().min(1),
+
   // Swagger / OpenAPI
   ENABLE_SWAGGER: z
     .string()

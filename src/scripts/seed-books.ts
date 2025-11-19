@@ -12,51 +12,106 @@ function ensureEnvLoaded() {
   loadEnv({ path: resolve(cwd, '.env') });
 }
 
-
 const ADJECTIVES = [
-  'Rahasia',
-  'Petualangan',
-  'Misteri',
-  'Legenda',
-  'Chronicles',
-  'Kisah',
-  'Jejak',
-  'Episode',
-  'Saga',
-  'Catatan',
-  'Dongeng',
+  'Hidden',
+  'Enchanted',
+  'Luminous',
+  'Forgotten',
+  'Shattered',
+  'Infinite',
+  'Silent',
+  'Eternal',
+  'Fierce',
+  'Arcane',
+  'Celestial',
 ];
 
 const NOUNS = [
-  'Cahaya',
-  'Bayangan',
-  'Samudra',
-  'Hutan',
-  'Angkasa',
-  'Bintang',
-  'Pulau',
-  'Samurai',
-  'Awan',
-  'Galaxy',
-  'Simfoni',
+  'Horizons',
+  'Legends',
+  'Echoes',
+  'Realms',
+  'Chronicles',
+  'Voyages',
+  'Wonders',
+  'Fables',
+  'Gardens',
+  'Symphonies',
+  'Labyrinths',
 ];
 
-const LANGUAGES = ['Indonesia', 'English', 'Bilingual'];
+const LANGUAGES = ['English', 'Spanish', 'German', 'French', 'Bilingual'];
 const PUBLISHERS = [
-  'Gramedia Pustaka Utama',
-  'Pustaka Abadi',
-  'Cakrawala Press',
-  'Nusantara Books',
-  'Lentera Publishing',
+  'Northwind Press',
+  'Silver Oak Publishing',
+  'Aurora House',
+  'Harborlight Books',
+  'Blue Horizon Media',
 ];
 
 const DESCRIPTION_SNIPPETS = [
-  'Novel yang menggugah dengan karakter kuat dan alur penuh kejutan.',
-  'Perjalanan emosional yang memadukan drama keluarga dengan misteri sejarah.',
-  'Panduan inspiratif bagi pembaca yang mencari motivasi baru dalam hidup.',
-  'Eksplorasi mendalam mengenai budaya nusantara dengan gaya bertutur modern.',
-  'Kisah petualangan penuh aksi yang memadukan teknologi dan mitologi lokal.',
+  'A sweeping tale with memorable characters and a cinematic pace.',
+  'An emotional journey that blends family drama with historical intrigue.',
+  'A motivating field guide for readers reinventing their routines.',
+  'A thoughtful exploration of culture and identity told in modern prose.',
+  'An adventurous roller coaster that mixes technology, myth, and mystery.',
 ];
+
+const FEATURED_SERIES = [
+  {
+    title: "Harry Potter and the Sorcerer's Stone",
+    authorSlug: 'jk-rowling',
+    categorySlug: 'young-adult-fiction',
+  },
+  {
+    title: 'Harry Potter and the Chamber of Secrets',
+    authorSlug: 'jk-rowling',
+    categorySlug: 'young-adult-fiction',
+  },
+  {
+    title: 'A Game of Thrones',
+    authorSlug: 'george-rr-martin',
+    categorySlug: 'adult-fiction',
+  },
+  {
+    title: 'A Clash of Kings',
+    authorSlug: 'george-rr-martin',
+    categorySlug: 'adult-fiction',
+  },
+  {
+    title: 'Percy Jackson and the Lightning Thief',
+    authorSlug: 'rick-riordan',
+    categorySlug: 'children-fiction',
+  },
+  {
+    title: 'The Lightning Tree',
+    authorSlug: 'patrick-rothfuss',
+    categorySlug: 'adult-fiction',
+  },
+  {
+    title: 'The Final Empire',
+    authorSlug: 'brandon-sanderson',
+    categorySlug: 'adult-fiction',
+  },
+  {
+    title: 'Good Omens',
+    authorSlug: 'neil-gaiman',
+    categorySlug: 'adult-fiction',
+  },
+  {
+    title: 'Murder on the Orient Express',
+    authorSlug: 'agatha-christie',
+    categorySlug: 'adult-fiction',
+  },
+  {
+    title: 'It Ends with Us',
+    authorSlug: 'colleen-hoover',
+    categorySlug: 'adult-fiction',
+  },
+];
+
+const delay = (ms: number) =>
+  new Promise((resolveDelay) => setTimeout(resolveDelay, ms));
 
 function randomFrom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -109,7 +164,11 @@ async function main() {
 
   try {
     const categories = await db
-      .select({ id: schema.categories.id })
+      .select({
+        id: schema.categories.id,
+        slug: schema.categories.slug,
+        name: schema.categories.name,
+      })
       .from(schema.categories)
       .where(sql`${schema.categories.deletedAt} IS NULL`);
 
@@ -120,7 +179,11 @@ async function main() {
     }
 
     const authors = await db
-      .select({ id: schema.authors.id })
+      .select({
+        id: schema.authors.id,
+        slug: schema.authors.slug,
+        name: schema.authors.name,
+      })
       .from(schema.authors)
       .where(sql`${schema.authors.deletedAt} IS NULL`);
 
@@ -130,37 +193,52 @@ async function main() {
       );
     }
 
-    const totalBooks = 10000;
+    const totalBooks = Number(process.env.SEED_BOOKS_TOTAL ?? 10000);
     type BookInsert = typeof schema.books.$inferInsert;
     const booksPayload: BookInsert[] = [];
+    const categoriesBySlug = new Map(
+      categories.map((category) => [category.slug, category]),
+    );
+    const authorsBySlug = new Map(
+      authors.map((author) => [author.slug, author]),
+    );
 
     for (let i = 0; i < totalBooks; i++) {
-      const title = `${randomFrom(ADJECTIVES)} ${randomFrom(NOUNS)} ${
-        i + 1
-      }`;
-      const slug = `${slugify(title)}-${i + 1}`;
-      const category = categories[i % categories.length];
+      const template = FEATURED_SERIES[i % FEATURED_SERIES.length];
+      const chosenCategory =
+        (template &&
+          template.categorySlug &&
+          categoriesBySlug.get(template.categorySlug)) ||
+        randomFrom(categories);
+      const chosenAuthor =
+        (template &&
+          template.authorSlug &&
+          authorsBySlug.get(template.authorSlug)) ||
+        randomFrom(authors);
+      const baseTitle =
+        template?.title ?? `${randomFrom(ADJECTIVES)} ${randomFrom(NOUNS)}`;
+      const titleSuffix = randomInt(1, 99999);
+      const title = `${baseTitle} #${titleSuffix}`;
+      const slug = `${slugify(baseTitle)}-${titleSuffix}`;
       const price = randomInt(50000, 250000);
       const discount =
         Math.random() > 0.6
           ? price - randomInt(5000, Math.floor(price * 0.3))
           : null;
 
-      const author = randomFrom(authors);
-
       booksPayload.push({
         id: randomUUID(),
         title,
         slug,
-        categoryId: category.id,
-        authorId: author.id,
+        categoryId: chosenCategory.id,
+        authorId: chosenAuthor.id,
         isbn: randomIsbn(),
         priceCents: price,
         discountPriceCents:
           discount && discount > 0 && discount < price ? discount : null,
         stock: randomInt(5, 200),
-        coverUrl: "",
-        description: `${randomFrom(DESCRIPTION_SNIPPETS)} Judul ini mengajak pembaca mengikuti ${title.toLowerCase()}.`,
+        coverUrl: `https://picsum.photos/seed/${slug}/400/600`,
+        description: `${randomFrom(DESCRIPTION_SNIPPETS)} Follow ${chosenAuthor.name} through "${title}" for a fresh take on modern storytelling.`,
         pages: randomInt(120, 620),
         language: randomFrom(LANGUAGES),
         publisher: randomFrom(PUBLISHERS),
@@ -169,14 +247,29 @@ async function main() {
       });
     }
 
-    const chunkSize = 100;
+    const chunkSize = 50;
+    const delayGroupSize = Number(
+      process.env.SEED_BOOKS_DELAY_GROUP_SIZE ?? 10,
+    );
+    const delayMs = Number(process.env.SEED_BOOKS_DELAY_MS ?? 3000);
+    let bufferedForDelay = 0;
     let inserted = 0;
     for (let i = 0; i < booksPayload.length; i += chunkSize) {
       const chunk = booksPayload.slice(i, i + chunkSize);
       await db.insert(schema.books).values(chunk);
       inserted += chunk.length;
+      bufferedForDelay += chunk.length;
       // eslint-disable-next-line no-console
       console.log(`Inserted ${inserted}/${totalBooks} books...`);
+
+      while (bufferedForDelay >= delayGroupSize) {
+        // eslint-disable-next-line no-console
+        console.log(
+          `Waiting ${delayMs}ms before inserting the next ${delayGroupSize} books...`,
+        );
+        await delay(delayMs);
+        bufferedForDelay -= delayGroupSize;
+      }
     }
 
     console.log('Books seeding completed.');

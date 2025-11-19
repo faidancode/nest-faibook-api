@@ -1,0 +1,121 @@
+import { z } from 'zod';
+
+export const OrderStatusEnum = z.enum([
+  'PENDING',
+  'PAID',
+  'PROCESSING',
+  'SHIPPED',
+  'DELIVERED',
+  'CANCELLED',
+]);
+
+export const PaymentStatusEnum = z.enum(['UNPAID', 'PAID', 'REFUNDED']);
+
+export const AddressSnapshotSchema = z.object({
+  id: z.uuid(),
+  label: z.string(),
+  recipientName: z.string(),
+  recipientPhone: z.string(),
+  street: z.string(),
+  subdistrict: z.string().nullable(),
+  district: z.string().nullable(),
+  city: z.string().nullable(),
+  province: z.string().nullable(),
+  postalCode: z.string().nullable(),
+});
+
+export const OrderItemSchema = z.object({
+  id: z.uuid(),
+  orderId: z.uuid(),
+  bookId: z.uuid(),
+  titleSnapshot: z.string(),
+  unitPriceCents: z.number().int().nonnegative(),
+  quantity: z.number().int().positive(),
+  totalCents: z.number().int().nonnegative(),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
+
+export const OrderSchema = z.object({
+  id: z.uuid(),
+  orderNumber: z.string(),
+  userId: z.uuid(),
+  status: OrderStatusEnum,
+  paymentMethod: z.string(),
+  paymentStatus: PaymentStatusEnum,
+  addressSnapshot: AddressSnapshotSchema,
+  subtotalCents: z.number().int().nonnegative(),
+  discountCents: z.number().int().nonnegative(),
+  shippingCents: z.number().int().nonnegative(),
+  totalCents: z.number().int().nonnegative(),
+  note: z.string().max(255).nullable(),
+  placedAt: z.coerce.date(),
+  paidAt: z.coerce.date().nullable(),
+  cancelledAt: z.coerce.date().nullable(),
+  completedAt: z.coerce.date().nullable(),
+  receiptNo: z.string().max(50).nullable(),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date().nullable(),
+  deletedAt: z.coerce.date().nullable(),
+  items: z.array(OrderItemSchema),
+});
+
+export const ListOrdersQuerySchema = z.object({
+  page: z
+    .string()
+    .optional()
+    .transform((v) => (v ? parseInt(v, 10) : 1))
+    .pipe(z.number().int().min(1)),
+  pageSize: z
+    .string()
+    .optional()
+    .transform((v) => (v ? parseInt(v, 10) : 10))
+    .pipe(z.number().int().min(1).max(100)),
+  status: OrderStatusEnum.optional(),
+  userId: z.uuid().optional(),
+  paymentStatus: PaymentStatusEnum.optional(),
+});
+
+export const CheckoutOrderSchema = z.object({
+  userId: z.uuid(),
+  addressId: z.uuid(),
+  paymentMethod: z.string().min(2).max(16).optional().default('VA'),
+  shippingCents: z.coerce.number().int().min(0).optional().default(0),
+  discountCents: z.coerce.number().int().min(0).optional().default(0),
+  note: z.string().max(255).optional(),
+  initialStatus: z
+    .enum(['PENDING', 'PAID'])
+    .optional()
+    .default('PENDING'),
+});
+
+export const CustomerUpdateStatusSchema = z.object({
+  nextStatus: z.literal('DELIVERED'),
+});
+
+export const AdminUpdateStatusSchema = z.object({
+  nextStatus: z.enum(['PROCESSING', 'SHIPPED']),
+  receiptNo: z.string().min(3).max(50).optional(),
+});
+
+export const UpdatePaymentStatusSchema = z.object({
+  paymentStatus: PaymentStatusEnum,
+  paidAt: z.coerce.date().optional(),
+  cancelledAt: z.coerce.date().optional(),
+  note: z.string().max(255).optional(),
+});
+
+export type OrderItemOutput = z.infer<typeof OrderItemSchema>;
+export type OrderOutput = z.infer<typeof OrderSchema>;
+export type ListOrdersQuery = z.infer<typeof ListOrdersQuerySchema>;
+export type CheckoutOrderInput = z.infer<typeof CheckoutOrderSchema>;
+export type CustomerUpdateStatusInput = z.infer<
+  typeof CustomerUpdateStatusSchema
+>;
+export type AdminUpdateStatusInput = z.infer<typeof AdminUpdateStatusSchema>;
+export type UpdatePaymentStatusInput = z.infer<
+  typeof UpdatePaymentStatusSchema
+>;
+export type OrderStatus = z.infer<typeof OrderStatusEnum>;
+export type PaymentStatus = z.infer<typeof PaymentStatusEnum>;
+export type AddressSnapshot = z.infer<typeof AddressSnapshotSchema>;
