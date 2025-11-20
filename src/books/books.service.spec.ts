@@ -34,6 +34,13 @@ describe('BooksService', () => {
     limit: jest.fn().mockResolvedValue(rows),
   });
 
+  const createReviewsSelectBuilder = (rows: any[]) => ({
+    from: jest.fn().mockReturnThis(),
+    leftJoin: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockResolvedValue(rows),
+  });
+
   beforeEach(async () => {
     db = {
       select: jest.fn(),
@@ -102,7 +109,8 @@ describe('BooksService', () => {
     const row = { id: 'book-1', authorName: null };
     db.select
       .mockReturnValueOnce(createFindOneBuilder([row]))
-      .mockReturnValueOnce(createWishlistCheckBuilder([{ id: 'wishlist-item' }]));
+      .mockReturnValueOnce(createWishlistCheckBuilder([{ id: 'wishlist-item' }]))
+      .mockReturnValueOnce(createReviewsSelectBuilder([]));
 
     const result = await service.findOne('book-1', { userId: 'user-1' });
 
@@ -113,7 +121,8 @@ describe('BooksService', () => {
     const row = { id: 'book-1', authorName: null };
     db.select
       .mockReturnValueOnce(createFindOneBuilder([row]))
-      .mockReturnValueOnce(createWishlistCheckBuilder([]));
+      .mockReturnValueOnce(createWishlistCheckBuilder([]))
+      .mockReturnValueOnce(createReviewsSelectBuilder([]));
 
     const result = await service.findOne('book-1', { userId: 'user-1' });
 

@@ -11,9 +11,16 @@ import { randomUUID } from 'crypto';
 
 type Db = MySql2Database<typeof schema>;
 type BookRow = typeof schema.books.$inferSelect;
+type ReviewRow = typeof schema.reviews.$inferSelect;
 type BookWithAuthorName = BookRow & {
   authorName: string | null;
   isWishlisted?: boolean;
+  reviews?: ReviewWithUser[];
+  averageRating?: number;
+  totalReviews?: number;
+};
+type ReviewWithUser = ReviewRow & {
+  userName: string | null;
 };
 
 const bookWithAuthorSelection = {
@@ -193,6 +200,10 @@ export class BooksService {
         schema.authors,
         eq(schema.books.authorId, schema.authors.id),
       )
+      .leftJoin(
+        schema.reviews,
+        eq(schema.books.id, schema.reviews.bookId),
+      )
       .where(
         and(eq(schema.books.id, id), sql`${schema.books.deletedAt} IS NULL`),
       )
@@ -223,7 +234,17 @@ export class BooksService {
       isWishlisted = Boolean(wishlistItem);
     }
 
-    return { ...(row as BookWithAuthorName), isWishlisted };
+    const reviews = await this.fetchBookReviews(id);
+    const averageRating = this.calculateAverageRating(reviews);
+    const totalReviews = reviews.length;
+
+    return {
+      ...(row as BookWithAuthorName),
+      isWishlisted,
+      reviews,
+      averageRating,
+      totalReviews,
+    };
   }
 
   async findBySlug(slug: string): Promise<BookWithAuthorName> {
@@ -246,7 +267,11 @@ export class BooksService {
       throw new NotFoundException('Book not found');
     }
 
-    return row as BookWithAuthorName;
+    const reviews = await this.fetchBookReviews(row.id);
+    const averageRating = this.calculateAverageRating(reviews);
+    const totalReviews = reviews.length;
+
+    return { ...(row as BookWithAuthorName), reviews, averageRating, totalReviews };
   }
 
   async create(input: CreateBookInput): Promise<BookWithAuthorName> {
@@ -273,6 +298,37 @@ export class BooksService {
     });
 
     return this.findOne(id);
+  }
+
+  private async fetchBookReviews(bookId: string): Promise<ReviewWithUser[]> {
+    const reviews = await this.db
+      .select({
+        id: schema.reviews.id,
+        userId: schema.reviews.userId,
+        bookId: schema.reviews.bookId,
+        rating: schema.reviews.rating,
+        title: schema.reviews.title,
+        body: schema.reviews.body,
+        createdAt: schema.reviews.createdAt,
+        updatedAt: schema.reviews.updatedAt,
+        deletedAt: schema.reviews.deletedAt,
+        userName: schema.users.name,
+      })
+      .from(schema.reviews)
+      .leftJoin(schema.users, eq(schema.reviews.userId, schema.users.id))
+      .where(eq(schema.reviews.bookId, bookId))
+      .orderBy(desc(schema.reviews.createdAt));
+
+    return reviews as ReviewWithUser[];
+  }
+
+  private calculateAverageRating(reviews: ReviewWithUser[]): number {
+    if (!reviews.length) {
+      return 0;
+    }
+
+    const total = reviews.reduce((sum, review) => sum + (review.rating ?? 0), 0);
+    return Number((total / reviews.length).toFixed(2));
   }
 
   async update(id: string, input: UpdateBookInput): Promise<BookWithAuthorName> {
