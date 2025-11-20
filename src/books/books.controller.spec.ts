@@ -10,6 +10,7 @@ describe('BooksController', () => {
     const serviceMock: Partial<Record<keyof BooksService, jest.Mock>> = {
       findAll: jest.fn(),
       findOne: jest.fn(),
+      getReviewsBySlug: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
       remove: jest.fn(),
@@ -81,6 +82,26 @@ describe('BooksController', () => {
       userId: undefined,
     });
     expect(book).toEqual({ id: 'book-1' });
+  });
+
+  it('parses review query parameters before delegating to service', async () => {
+    const payload = {
+      book: { id: 'book-1', title: 'Book A' },
+      reviews: [],
+      ratingCounts: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+    };
+    service.getReviewsBySlug.mockResolvedValue(payload as any);
+
+    const reviews = await controller.getReviewsBySlug('book-a', {
+      sort: 'highest',
+      rating: '4',
+    });
+
+    expect(service.getReviewsBySlug).toHaveBeenCalledWith('book-a', {
+      sort: 'highest',
+      rating: 4,
+    });
+    expect(reviews).toBe(payload);
   });
 
   it('validates payload when creating book', async () => {

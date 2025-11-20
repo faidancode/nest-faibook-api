@@ -2,9 +2,12 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type { MySql2Database } from 'drizzle-orm/mysql2';
 import { and, asc, desc, eq, like, sql } from 'drizzle-orm';
 import * as schema from '../infra/drizzle/schema';
+import { REVIEW_RATING_VALUES } from './books.schemas';
 import type {
   CreateBookInput,
+  ListBookReviewsQuery,
   ListBooksQuery,
+  ReviewRatingValue,
   UpdateBookInput,
 } from './books.schemas';
 import { randomUUID } from 'crypto';
@@ -22,6 +25,12 @@ type BookWithAuthorName = BookRow & {
 type ReviewWithUser = ReviewRow & {
   userName: string | null;
 };
+
+type RatingAggregationRow = {
+  rating: number;
+  count: number;
+};
+type RatingCounts = Record<ReviewRatingValue, number>;
 
 const bookWithAuthorSelection = {
   id: schema.books.id,
@@ -90,6 +99,29 @@ export class BooksService {
     }
 
     return where;
+  }
+
+  private async fetchBookBySlug(slug: string): Promise<BookWithAuthorName> {
+    const [row] = await this.db
+      .select(bookWithAuthorSelection)
+      .from(schema.books)
+      .leftJoin(
+        schema.authors,
+        eq(schema.books.authorId, schema.authors.id),
+      )
+      .where(
+        and(
+          eq(schema.books.slug, slug),
+          sql`${schema.books.deletedAt} IS NULL`,
+        ),
+      )
+      .limit(1);
+
+    if (!row) {
+      throw new NotFoundException('Book not found');
+    }
+
+    return row as BookWithAuthorName;
   }
 
   async findAll(query: ListBooksQuery) {
@@ -248,30 +280,80 @@ export class BooksService {
   }
 
   async findBySlug(slug: string): Promise<BookWithAuthorName> {
-    const [row] = await this.db
-      .select(bookWithAuthorSelection)
-      .from(schema.books)
-      .leftJoin(
-        schema.authors,
-        eq(schema.books.authorId, schema.authors.id),
-      )
-      .where(
-        and(
-          eq(schema.books.slug, slug),
-          sql`${schema.books.deletedAt} IS NULL`,
-        ),
-      )
-      .limit(1);
-
-    if (!row) {
-      throw new NotFoundException('Book not found');
-    }
-
-    const reviews = await this.fetchBookReviews(row.id);
+    const book = await this.fetchBookBySlug(slug);
+    const reviews = await this.fetchBookReviews(book.id);
     const averageRating = this.calculateAverageRating(reviews);
     const totalReviews = reviews.length;
 
-    return { ...(row as BookWithAuthorName), reviews, averageRating, totalReviews };
+    return { ...book, reviews, averageRating, totalReviews };
+  }
+
+  async getReviewsBySlug(
+    slug: string,
+    query: ListBookReviewsQuery,
+  ): Promise<{
+    book: {
+      id: string;
+      title: string;
+      authorName: string | null;
+      averageRating: number;
+      totalReviews: number;
+    };
+    reviews: ReviewWithUser[];
+    ratingCounts: RatingCounts;
+  }> {
+    const book = await this.fetchBookBySlug(slug);
+    const baseFilter = and(
+      eq(schema.reviews.bookId, book.id),
+      sql`${schema.reviews.deletedAt} IS NULL`,
+    );
+
+    const ratingGroups = await this.db
+      .select({
+        rating: schema.reviews.rating,
+        count: sql<number>`COUNT(*)`,
+      })
+      .from(schema.reviews)
+      .where(baseFilter)
+      .groupBy(schema.reviews.rating);
+
+    const { counts: ratingCounts, averageRating, totalReviews } =
+      this.summarizeRatingCounts(ratingGroups);
+
+    let reviewFilter = baseFilter;
+    if (typeof query.rating === 'number') {
+      reviewFilter = and(reviewFilter, eq(schema.reviews.rating, query.rating));
+    }
+
+    const reviews = await this.db
+      .select({
+        id: schema.reviews.id,
+        userId: schema.reviews.userId,
+        bookId: schema.reviews.bookId,
+        rating: schema.reviews.rating,
+        title: schema.reviews.title,
+        body: schema.reviews.body,
+        createdAt: schema.reviews.createdAt,
+        updatedAt: schema.reviews.updatedAt,
+        deletedAt: schema.reviews.deletedAt,
+        userName: schema.users.name,
+      })
+      .from(schema.reviews)
+      .leftJoin(schema.users, eq(schema.reviews.userId, schema.users.id))
+      .where(reviewFilter)
+      .orderBy(this.buildReviewOrder(query.sort ?? 'newest'));
+
+    return {
+      book: {
+        id: book.id,
+        title: book.title,
+        authorName: book.authorName,
+        averageRating,
+        totalReviews,
+      },
+      reviews: reviews as ReviewWithUser[],
+      ratingCounts,
+    };
   }
 
   async create(input: CreateBookInput): Promise<BookWithAuthorName> {
@@ -298,6 +380,50 @@ export class BooksService {
     });
 
     return this.findOne(id);
+  }
+
+  private buildReviewOrder(sort: ListBookReviewsQuery['sort']) {
+    switch (sort) {
+      case 'oldest':
+        return asc(schema.reviews.createdAt);
+      case 'highest':
+        return desc(schema.reviews.rating);
+      case 'lowest':
+        return asc(schema.reviews.rating);
+      default:
+        return desc(schema.reviews.createdAt);
+    }
+  }
+
+  private summarizeRatingCounts(rows: RatingAggregationRow[]) {
+    const counts = REVIEW_RATING_VALUES.reduce(
+      (acc, rating) => {
+        acc[rating] = 0;
+        return acc;
+      },
+      {} as RatingCounts,
+    );
+
+    for (const row of rows) {
+      const ratingValue = row.rating as ReviewRatingValue;
+      if (!REVIEW_RATING_VALUES.includes(ratingValue)) {
+        continue;
+      }
+
+      counts[ratingValue] = Number(row.count);
+    }
+
+    const totalReviews = Object.values(counts).reduce((sum, value) => sum + value, 0);
+    const ratingSum = REVIEW_RATING_VALUES.reduce(
+      (sum, rating) => sum + rating * counts[rating],
+      0,
+    );
+
+    const averageRating = totalReviews
+      ? Number((ratingSum / totalReviews).toFixed(2))
+      : 0;
+
+    return { counts, totalReviews, averageRating };
   }
 
   private async fetchBookReviews(bookId: string): Promise<ReviewWithUser[]> {

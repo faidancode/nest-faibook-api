@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+export const REVIEW_RATING_VALUES = [1, 2, 3, 4, 5] as const;
+export type ReviewRatingValue = (typeof REVIEW_RATING_VALUES)[number];
+
 export const BookSortFieldEnum = z.enum(['title', 'createdAt', 'priceCents']);
 export type BookSortField = z.infer<typeof BookSortFieldEnum>;
 
@@ -76,6 +79,41 @@ export const ListBooksQuerySchema = z
   }));
 
 export type ListBooksQuery = z.infer<typeof ListBooksQuerySchema>;
+
+const ratingFilterSchema = z
+  .union([z.string(), z.number()])
+  .optional()
+  .transform((value) => {
+    if (value === undefined || value === null) {
+      return undefined;
+    }
+
+    const parsed =
+      typeof value === 'string'
+        ? Number.parseInt(value, 10)
+        : Number.isFinite(value)
+        ? Math.trunc(value)
+        : NaN;
+
+    if (Number.isNaN(parsed)) {
+      return undefined;
+    }
+
+    if (!REVIEW_RATING_VALUES.includes(parsed as ReviewRatingValue)) {
+      return undefined;
+    }
+
+    return parsed as ReviewRatingValue;
+  });
+
+export const ReviewSortEnum = z.enum(['newest', 'oldest', 'highest', 'lowest']);
+
+export const ListBookReviewsQuerySchema = z.object({
+  sort: ReviewSortEnum.optional().default('newest'),
+  rating: ratingFilterSchema,
+});
+
+export type ListBookReviewsQuery = z.infer<typeof ListBookReviewsQuerySchema>;
 
 export const CreateBookSchema = z.object({
   title: z.string().min(1).max(200),

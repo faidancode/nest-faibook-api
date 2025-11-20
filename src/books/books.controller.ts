@@ -16,6 +16,7 @@ import type { Request } from 'express';
 import { BooksService } from './books.service';
 import {
   CreateBookSchema,
+  ListBookReviewsQuerySchema,
   ListBooksQuerySchema,
   UpdateBookSchema,
 } from './books.schemas';
@@ -33,6 +34,12 @@ export class BooksController {
   async findAll(@Query() query: unknown) {
     const parsed = ListBooksQuerySchema.parse(query);
     return this.booksService.findAll(parsed);
+  }
+
+  @Get(':slug/reviews')
+  async getReviewsBySlug(@Param('slug') slug: string, @Query() query: unknown) {
+    const parsed = ListBookReviewsQuerySchema.parse(query);
+    return this.booksService.getReviewsBySlug(slug, parsed);
   }
   
   @Get('detail/:id')

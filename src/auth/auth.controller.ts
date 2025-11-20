@@ -195,6 +195,8 @@ export class AuthController {
         userId: result.userId,
         role: result.role,
         user: result.user,
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
       });
     }
 

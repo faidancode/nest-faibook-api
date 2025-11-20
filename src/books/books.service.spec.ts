@@ -41,6 +41,12 @@ describe('BooksService', () => {
     orderBy: jest.fn().mockResolvedValue(rows),
   });
 
+  const createRatingCountBuilder = (rows: any[]) => ({
+    from: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    groupBy: jest.fn().mockResolvedValue(rows),
+  });
+
   beforeEach(async () => {
     db = {
       select: jest.fn(),
@@ -223,5 +229,75 @@ describe('BooksService', () => {
     );
     expect(whereMock).toHaveBeenCalled();
     findOneSpy.mockRestore();
+  });
+
+  it('throws when slug reviews are missing', async () => {
+    db.select.mockReturnValueOnce(createFindOneBuilder([]));
+
+    await expect(
+      service.getReviewsBySlug('missing', { sort: 'newest', rating: undefined }),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('returns reviews with stats and rating counts', async () => {
+    const bookRow = { id: 'book-1', title: 'Book A', authorName: 'Author Name' };
+    const ratingGroups = [
+      { rating: 5, count: 2 },
+      { rating: 3, count: 1 },
+    ];
+    const reviews = [
+      {
+        id: 'review-1',
+        userId: 'user-1',
+        bookId: 'book-1',
+        rating: 5,
+        title: 'Excellent',
+        body: 'Loved it',
+        createdAt: new Date('2025-01-01'),
+        updatedAt: new Date('2025-01-01'),
+        deletedAt: null,
+        userName: 'Reviewer One',
+      },
+      {
+        id: 'review-2',
+        userId: 'user-2',
+        bookId: 'book-1',
+        rating: 5,
+        title: 'Also great',
+        body: 'Recommending',
+        createdAt: new Date('2025-01-02'),
+        updatedAt: new Date('2025-01-02'),
+        deletedAt: null,
+        userName: 'Reviewer Two',
+      },
+    ];
+
+    db.select
+      .mockReturnValueOnce(createFindOneBuilder([bookRow]))
+      .mockReturnValueOnce(createRatingCountBuilder(ratingGroups))
+      .mockReturnValueOnce(createReviewsSelectBuilder(reviews));
+
+    const result = await service.getReviewsBySlug('book-a', {
+      sort: 'highest',
+      rating: 5,
+    });
+
+    expect(result).toEqual({
+      book: {
+        id: 'book-1',
+        title: 'Book A',
+        authorName: 'Author Name',
+        averageRating: 4.33,
+        totalReviews: 3,
+      },
+      reviews,
+      ratingCounts: {
+        1: 0,
+        2: 0,
+        3: 1,
+        4: 0,
+        5: 2,
+      },
+    });
   });
 });
