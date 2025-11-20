@@ -13,6 +13,7 @@ describe('WishlistsService', () => {
 
   const createWhereSelectBuilder = (rows: any[]) => ({
     from: jest.fn().mockReturnThis(),
+    leftJoin: jest.fn().mockReturnThis(),
     where: jest.fn().mockResolvedValue(rows),
   });
 
@@ -69,6 +70,10 @@ describe('WishlistsService', () => {
       bookId: 'book-1',
       createdAt: new Date(),
       updatedAt: new Date(),
+      bookTitle: 'Book Title',
+      bookAuthor: 'Author Name',
+      bookPrice: 1000,
+      bookDiscountedPrice: 900,
     };
 
     db.select
@@ -297,5 +302,117 @@ describe('WishlistsService', () => {
       ...wishlist,
       items: [item],
     });
+  });
+
+  it('sorts wishlist items by newest by default', async () => {
+    const wishlist = {
+      id: 'wishlist-1',
+      userId: 'user-1',
+      createdAt: new Date('2024-01-01'),
+      updatedAt: new Date('2024-01-01'),
+    };
+    const older = {
+      id: 'item-older',
+      wishlistId: 'wishlist-1',
+      bookId: 'book-1',
+      createdAt: new Date('2024-01-01'),
+      updatedAt: new Date('2024-01-01'),
+    };
+    const newer = {
+      id: 'item-newer',
+      wishlistId: 'wishlist-1',
+      bookId: 'book-2',
+      createdAt: new Date('2024-02-01'),
+      updatedAt: new Date('2024-02-01'),
+    };
+
+    db.select
+      .mockReturnValueOnce(createFindOneBuilder([wishlist]))
+      .mockReturnValueOnce(createWhereSelectBuilder([older, newer]));
+
+    const result = await service.getWishlistByUserId('user-1');
+
+    expect(result.items.map((item: any) => item.id)).toEqual([
+      'item-newer',
+      'item-older',
+    ]);
+  });
+
+  it('sorts wishlist items by lowest price', async () => {
+    const wishlist = {
+      id: 'wishlist-1',
+      userId: 'user-1',
+      createdAt: new Date('2024-01-01'),
+      updatedAt: new Date('2024-01-01'),
+    };
+    const expensive = {
+      id: 'item-expensive',
+      wishlistId: 'wishlist-1',
+      bookId: 'book-1',
+      bookPrice: 2000,
+      bookDiscountedPrice: null,
+      createdAt: new Date('2024-01-02'),
+      updatedAt: new Date('2024-01-02'),
+    };
+    const cheap = {
+      id: 'item-cheap',
+      wishlistId: 'wishlist-1',
+      bookId: 'book-2',
+      bookPrice: 1000,
+      bookDiscountedPrice: null,
+      createdAt: new Date('2024-01-03'),
+      updatedAt: new Date('2024-01-03'),
+    };
+
+    db.select
+      .mockReturnValueOnce(createFindOneBuilder([wishlist]))
+      .mockReturnValueOnce(createWhereSelectBuilder([expensive, cheap]));
+
+    const result = await service.getWishlistByUserId('user-1', 'lowest');
+
+    expect(result.items.map((item: any) => item.id)).toEqual([
+      'item-cheap',
+      'item-expensive',
+    ]);
+  });
+
+  it('sorts wishlist items by highest price using discounted price first', async () => {
+    const wishlist = {
+      id: 'wishlist-1',
+      userId: 'user-1',
+      createdAt: new Date('2024-01-01'),
+      updatedAt: new Date('2024-01-01'),
+    };
+    const discountedButExpensive = {
+      id: 'item-discounted',
+      wishlistId: 'wishlist-1',
+      bookId: 'book-1',
+      bookPrice: 3000,
+      bookDiscountedPrice: 1500,
+      createdAt: new Date('2024-01-02'),
+      updatedAt: new Date('2024-01-02'),
+    };
+    const expensive = {
+      id: 'item-expensive',
+      wishlistId: 'wishlist-1',
+      bookId: 'book-2',
+      bookPrice: 2000,
+      bookDiscountedPrice: null,
+      createdAt: new Date('2024-01-03'),
+      updatedAt: new Date('2024-01-03'),
+    };
+
+    db.select
+      .mockReturnValueOnce(createFindOneBuilder([wishlist]))
+      .mockReturnValueOnce(
+        createWhereSelectBuilder([discountedButExpensive, expensive]),
+      );
+
+    const result = await service.getWishlistByUserId('user-1', 'highest');
+
+    expect(result.items.map((item: any) => item.id)).toEqual([
+      'item-expensive',
+      'item-discounted',
+    ]);
   });
 });

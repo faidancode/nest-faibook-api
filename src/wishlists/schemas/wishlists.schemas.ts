@@ -6,6 +6,10 @@ const WishlistItemBaseSchema = z.object({
   bookId: z.uuid(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
+  bookTitle: z.string().optional().nullable(),
+  bookAuthor: z.string().optional().nullable(),
+  bookPrice: z.number().optional().nullable(),
+  bookDiscountedPrice: z.number().optional().nullable(),
 });
 
 export const WishlistBaseSchema = z.object({

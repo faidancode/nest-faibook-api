@@ -12,6 +12,13 @@ import type {
 type Db = MySql2Database<typeof schema>;
 type WishlistRow = typeof schema.wishlists.$inferSelect;
 type WishlistItemRow = typeof schema.wishlistItems.$inferSelect;
+type WishlistItemWithBook = WishlistItemRow & {
+  bookTitle?: string | null;
+  bookAuthor?: string | null;
+  bookPrice?: number | null;
+  bookDiscountedPrice?: number | null;
+};
+export type WishlistSortOption = 'newest' | 'lowest' | 'highest';
 
 @Injectable()
 export class WishlistsService {
@@ -19,7 +26,7 @@ export class WishlistsService {
 
   private buildWishlistOutput(
     wishlist: WishlistRow,
-    items: WishlistItemRow[],
+    items: WishlistItemWithBook[],
   ): WishlistOutput {
     return {
       id: wishlist.id,
@@ -28,6 +35,67 @@ export class WishlistsService {
       updatedAt: wishlist.updatedAt,
       items,
     };
+  }
+
+  private sortWishlistItems(
+    items: WishlistItemWithBook[],
+    sort: WishlistSortOption,
+  ): WishlistItemWithBook[] {
+    const sorted = [...items];
+    const compareByDateDesc = (
+      a: WishlistItemWithBook,
+      b: WishlistItemWithBook,
+    ) => {
+      const aTime = new Date(a.createdAt).getTime();
+      const bTime = new Date(b.createdAt).getTime();
+      return bTime - aTime;
+    };
+
+    const getPrice = (item: WishlistItemWithBook) =>
+      item.bookDiscountedPrice ?? item.bookPrice ?? null;
+
+    switch (sort) {
+      case 'lowest':
+        sorted.sort((a, b) => {
+          const priceA = getPrice(a);
+          const priceB = getPrice(b);
+          if (priceA === null && priceB === null) {
+            return compareByDateDesc(a, b);
+          }
+          if (priceA === null) {
+            return 1;
+          }
+          if (priceB === null) {
+            return -1;
+          }
+
+          const diff = priceA - priceB;
+          return diff !== 0 ? diff : compareByDateDesc(a, b);
+        });
+        break;
+      case 'highest':
+        sorted.sort((a, b) => {
+          const priceA = getPrice(a);
+          const priceB = getPrice(b);
+          if (priceA === null && priceB === null) {
+            return compareByDateDesc(a, b);
+          }
+          if (priceA === null) {
+            return 1;
+          }
+          if (priceB === null) {
+            return -1;
+          }
+
+          const diff = priceB - priceA;
+          return diff !== 0 ? diff : compareByDateDesc(a, b);
+        });
+        break;
+      default:
+        sorted.sort(compareByDateDesc);
+    }
+
+    return sorted;
   }
 
   async findAll(): Promise<WishlistOutput[]> {
@@ -66,7 +134,10 @@ export class WishlistsService {
     );
   }
 
-  async getWishlistByUserId(userId: string): Promise<WishlistOutput> {
+  async getWishlistByUserId(
+    userId: string,
+    sort: WishlistSortOption = 'newest',
+  ): Promise<WishlistOutput> {
     const [wishlist] = await this.db
       .select()
       .from(schema.wishlists)
@@ -78,11 +149,35 @@ export class WishlistsService {
     }
 
     const items = await this.db
-      .select()
+      .select({
+        id: schema.wishlistItems.id,
+        wishlistId: schema.wishlistItems.wishlistId,
+        bookId: schema.wishlistItems.bookId,
+        createdAt: schema.wishlistItems.createdAt,
+        updatedAt: schema.wishlistItems.updatedAt,
+        book: {
+          title: schema.books.title,
+          coverUrl: schema.books.coverUrl,
+          slug: schema.books.slug,
+          priceCents: schema.books.priceCents,
+          discountPriceCents: schema.books.discountPriceCents,
+          authorName: schema.authors.name,
+        },
+      })
       .from(schema.wishlistItems)
+      .leftJoin(
+        schema.books,
+        eq(schema.wishlistItems.bookId, schema.books.id),
+      )
+      .leftJoin(
+        schema.authors,
+        eq(schema.books.authorId, schema.authors.id),
+      )
       .where(eq(schema.wishlistItems.wishlistId, wishlist.id));
 
-    return this.buildWishlistOutput(wishlist, items);
+    const sortedItems = this.sortWishlistItems(items, sort);
+
+    return this.buildWishlistOutput(wishlist, sortedItems);
   }
 
   async findOne(id: string): Promise<WishlistOutput> {

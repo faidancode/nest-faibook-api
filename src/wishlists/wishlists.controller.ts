@@ -11,14 +11,14 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { WishlistsService } from './wishlists.service';
+import { JwtAuthGuard } from '../auth/jwt.guard';
+import { RolesGuard } from '../auth/roles.guard';
 import {
   CreateWishlistSchema,
   UpdateWishlistSchema,
 } from './schemas/wishlists.schemas';
-import { JwtAuthGuard } from '../auth/jwt.guard';
-import { RolesGuard } from '../auth/roles.guard';
-import { Roles } from '../auth/roles.decorator';
+import type { WishlistSortOption } from './wishlists.service';
+import { WishlistsService } from './wishlists.service';
 
 @Controller('v1/wishlists')
 export class WishlistsController {
@@ -31,14 +31,22 @@ export class WishlistsController {
 
   @Get('/by-user')
   @UseGuards(JwtAuthGuard)
-  async getByUser(@Query('userId') userId: string) {
-    return this.wishlistsService.getWishlistByUserId(userId);
+  async getByUser(
+    @Query('userId') userId: string,
+    @Query('sort') sort?: WishlistSortOption,
+  ) {
+    const sortOption: WishlistSortOption =
+      sort === 'lowest' || sort === 'highest' || sort === 'newest'
+        ? sort
+        : 'newest';
+
+    return this.wishlistsService.getWishlistByUserId(userId, sortOption);
   }
 
-  // @Get(':id')
-  // async findOne(@Param('id') id: string) {
-  //   return this.wishlistsService.findOne(id);
-  // }
+  @Get(':id')
+  async findOne(@Param('id') id: string) {
+    return this.wishlistsService.findOne(id);
+  }
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
