@@ -153,8 +153,6 @@ export class WishlistsService {
         id: schema.wishlistItems.id,
         wishlistId: schema.wishlistItems.wishlistId,
         bookId: schema.wishlistItems.bookId,
-        createdAt: schema.wishlistItems.createdAt,
-        updatedAt: schema.wishlistItems.updatedAt,
         book: {
           title: schema.books.title,
           coverUrl: schema.books.coverUrl,
@@ -163,6 +161,10 @@ export class WishlistsService {
           discountPriceCents: schema.books.discountPriceCents,
           authorName: schema.authors.name,
         },
+        createdAt: schema.wishlistItems.createdAt,
+        updatedAt: schema.wishlistItems.updatedAt,
+        bookPrice: schema.books.priceCents,
+        bookDiscountedPrice: schema.books.discountPriceCents,
       })
       .from(schema.wishlistItems)
       .leftJoin(
