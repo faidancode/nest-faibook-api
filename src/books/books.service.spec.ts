@@ -9,6 +9,7 @@ describe('BooksService', () => {
   const createSelectBuilder = (rows: any[]) => ({
     from: jest.fn().mockReturnThis(),
     leftJoin: jest.fn().mockReturnThis(),
+    innerJoin: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
     limit: jest.fn().mockReturnThis(),
@@ -23,6 +24,7 @@ describe('BooksService', () => {
   const createFindOneBuilder = (rows: any[]) => ({
     from: jest.fn().mockReturnThis(),
     leftJoin: jest.fn().mockReturnThis(),
+    innerJoin: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     limit: jest.fn().mockResolvedValue(rows),
   });
@@ -37,14 +39,32 @@ describe('BooksService', () => {
   const createReviewsSelectBuilder = (rows: any[]) => ({
     from: jest.fn().mockReturnThis(),
     leftJoin: jest.fn().mockReturnThis(),
+    innerJoin: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
-    orderBy: jest.fn().mockResolvedValue(rows),
+    orderBy: jest.fn().mockReturnThis(),
+    limit: jest.fn().mockReturnThis(),
+    offset: jest.fn().mockResolvedValue(rows),
   });
 
   const createRatingCountBuilder = (rows: any[]) => ({
     from: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     groupBy: jest.fn().mockResolvedValue(rows),
+  });
+
+  const createPurchaseCheckBuilder = (rows: any[]) => ({
+    from: jest.fn().mockReturnThis(),
+    leftJoin: jest.fn().mockReturnThis(),
+    innerJoin: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    limit: jest.fn().mockResolvedValue(rows),
+  });
+
+  const createRatingSumBuilder = (rows: any[]) => ({
+    from: jest.fn().mockReturnThis(),
+    leftJoin: jest.fn().mockReturnThis(),
+    innerJoin: jest.fn().mockReturnThis(),
+    where: jest.fn().mockResolvedValue(rows),
   });
 
   beforeEach(async () => {
@@ -235,7 +255,12 @@ describe('BooksService', () => {
     db.select.mockReturnValueOnce(createFindOneBuilder([]));
 
     await expect(
-      service.getReviewsBySlug('missing', { sort: 'newest', rating: undefined }),
+      service.getReviewsBySlug('missing', {
+        sort: 'newest',
+        rating: undefined,
+        page: 1,
+        pageSize: 10,
+      }),
     ).rejects.toThrow(NotFoundException);
   });
 
@@ -275,29 +300,101 @@ describe('BooksService', () => {
     db.select
       .mockReturnValueOnce(createFindOneBuilder([bookRow]))
       .mockReturnValueOnce(createRatingCountBuilder(ratingGroups))
-      .mockReturnValueOnce(createReviewsSelectBuilder(reviews));
+      .mockReturnValueOnce(createReviewsSelectBuilder(reviews))
+      .mockReturnValueOnce(createCountBuilder(reviews.length));
 
     const result = await service.getReviewsBySlug('book-a', {
       sort: 'highest',
       rating: 5,
+      page: 1,
+      pageSize: 10,
     });
 
     expect(result).toEqual({
-      book: {
-        id: 'book-1',
-        title: 'Book A',
-        authorName: 'Author Name',
-        averageRating: 4.33,
-        totalReviews: 3,
+      data: {
+        book: {
+          id: 'book-1',
+          title: 'Book A',
+          coverUrl: undefined,
+          authorName: 'Author Name',
+          averageRating: 4.33,
+          totalReviews: 3,
+        },
+        reviews,
+        ratingCounts: {
+          1: 0,
+          2: 0,
+          3: 1,
+          4: 0,
+          5: 2,
+        },
       },
-      reviews,
-      ratingCounts: {
-        1: 0,
-        2: 0,
-        3: 1,
-        4: 0,
-        5: 2,
+      meta: {
+        page: 1,
+        pageSize: 10,
+        total: 2,
+        totalPages: 1,
       },
+      error: {},
+      ok: true,
     });
+  });
+
+  it('returns not eligible when user is not authenticated', async () => {
+    const bookRow = { id: 'book-1', title: 'Book A', authorName: 'Author Name' };
+    db.select.mockReturnValueOnce(createFindOneBuilder([bookRow]));
+
+    const eligibility = await service.checkReviewEligibility('book-a', null);
+
+    expect(eligibility).toEqual({ eligible: false, reason: 'UNAUTHENTICATED' });
+  });
+
+  it('creates a review when eligible and updates rating aggregates', async () => {
+    const bookRow = { id: 'book-1', title: 'Book A', authorName: 'Author Name' };
+    const reviewRow = {
+      id: 'review-1',
+      userId: 'user-1',
+      bookId: 'book-1',
+      rating: 5,
+      title: null,
+      body: 'Great read',
+      createdAt: new Date('2025-01-01'),
+      updatedAt: new Date('2025-01-01'),
+      deletedAt: null,
+      userName: 'User One',
+    };
+
+    const insertValues = jest.fn().mockResolvedValue(undefined);
+    db.insert.mockReturnValue({ values: insertValues });
+
+    const setMock = jest.fn().mockReturnValue({
+      where: jest.fn().mockResolvedValue(undefined),
+    });
+    db.update.mockReturnValue({ set: setMock });
+
+    db.select
+      .mockReturnValueOnce(createFindOneBuilder([bookRow])) // fetch book
+      .mockReturnValueOnce(createFindOneBuilder([])) // existing review check
+      .mockReturnValueOnce(createPurchaseCheckBuilder([{ id: 'order-1' }])) // purchase check
+      .mockReturnValueOnce(createReviewsSelectBuilder([reviewRow])) // fetch created review
+      .mockReturnValueOnce(createRatingSumBuilder([{ total: 1, sum: 5 }])); // aggregates
+
+    const result = await service.createReview(
+      'book-a',
+      { rating: 5, body: 'Great read', title: undefined },
+      'user-1',
+    );
+
+    expect(insertValues).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        bookId: 'book-1',
+        rating: 5,
+        body: 'Great read',
+      }),
+    );
+    expect(result.data.review).toEqual(reviewRow);
+    expect(result.data.rating).toEqual({ averageRating: 5, totalReviews: 1 });
+    expect(setMock).toHaveBeenCalled();
   });
 });

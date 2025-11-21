@@ -16,6 +16,7 @@ import type { Request } from 'express';
 import { BooksService } from './books.service';
 import {
   CreateBookSchema,
+  CreateReviewSchema,
   ListBookReviewsQuerySchema,
   ListBooksQuerySchema,
   UpdateBookSchema,
@@ -41,7 +42,39 @@ export class BooksController {
     const parsed = ListBookReviewsQuerySchema.parse(query);
     return this.booksService.getReviewsBySlug(slug, parsed);
   }
-  
+
+  @Get(':slug/reviews/eligibility')
+  @UseGuards(OptionalJwtAuthGuard)
+  async getReviewEligibility(
+    @Param('slug') slug: string,
+    @Req() req: Request,
+  ) {
+    const currentUser = req.user as JwtPayload | null;
+    const eligibility = await this.booksService.checkReviewEligibility(
+      slug,
+      currentUser?.sub ?? null,
+    );
+
+    return {
+      data: eligibility,
+      meta: {},
+      error: {},
+      ok: true,
+    };
+  }
+
+  @Post(':slug/reviews')
+  @UseGuards(JwtAuthGuard)
+  async createReview(
+    @Param('slug') slug: string,
+    @Body() body: unknown,
+    @Req() req: Request,
+  ) {
+    const parsed = CreateReviewSchema.parse(body);
+    const currentUser = req.user as JwtPayload;
+    return this.booksService.createReview(slug, parsed, currentUser.sub);
+  }
+
   @Get('detail/:id')
   @UseGuards(OptionalJwtAuthGuard)
   async findOne(@Param('id') id: string, @Req() req: Request) {
@@ -55,7 +88,6 @@ export class BooksController {
   async findBySlug(@Param('slug') slug: string) {
     return this.booksService.findBySlug(slug);
   }
-
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)

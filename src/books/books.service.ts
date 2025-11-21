@@ -1,10 +1,16 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type { MySql2Database } from 'drizzle-orm/mysql2';
 import { and, asc, desc, eq, like, sql } from 'drizzle-orm';
 import * as schema from '../infra/drizzle/schema';
 import { REVIEW_RATING_VALUES } from './books.schemas';
 import type {
   CreateBookInput,
+  CreateReviewInput,
   ListBookReviewsQuery,
   ListBooksQuery,
   ReviewRatingValue,
@@ -31,6 +37,11 @@ type RatingAggregationRow = {
   count: number;
 };
 type RatingCounts = Record<ReviewRatingValue, number>;
+type ReviewEligibilityReason =
+  | 'UNAUTHENTICATED'
+  | 'ALREADY_REVIEWED'
+  | 'NOT_PURCHASED'
+  | 'ELIGIBLE';
 
 const bookWithAuthorSelection = {
   id: schema.books.id,
@@ -122,6 +133,96 @@ export class BooksService {
     }
 
     return row as BookWithAuthorName;
+  }
+
+  private async hasExistingReview(bookId: string, userId: string) {
+    const [row] = await this.db
+      .select({ id: schema.reviews.id })
+      .from(schema.reviews)
+      .where(
+        and(
+          eq(schema.reviews.bookId, bookId),
+          eq(schema.reviews.userId, userId),
+          sql`${schema.reviews.deletedAt} IS NULL`,
+        ),
+      )
+      .limit(1);
+
+    return Boolean(row);
+  }
+
+  private async hasCompletedPurchase(bookId: string, userId: string) {
+    const [row] = await this.db
+      .select({ id: schema.orders.id })
+      .from(schema.orders)
+      .innerJoin(
+        schema.orderItems,
+        eq(schema.orders.id, schema.orderItems.orderId),
+      )
+      .where(
+        and(
+          eq(schema.orders.userId, userId),
+          eq(schema.orderItems.bookId, bookId),
+          eq(schema.orders.status, 'DELIVERED'),
+          sql`${schema.orders.deletedAt} IS NULL`,
+        ),
+      )
+      .limit(1);
+
+    return Boolean(row);
+  }
+
+  private async evaluateReviewEligibility(bookId: string, userId: string | null) {
+    if (!userId) {
+      return { eligible: false, reason: 'UNAUTHENTICATED' as ReviewEligibilityReason };
+    }
+
+    const alreadyReviewed = await this.hasExistingReview(bookId, userId);
+    if (alreadyReviewed) {
+      return { eligible: false, reason: 'ALREADY_REVIEWED' as ReviewEligibilityReason };
+    }
+
+    const hasPurchased = await this.hasCompletedPurchase(bookId, userId);
+    if (!hasPurchased) {
+      return { eligible: false, reason: 'NOT_PURCHASED' as ReviewEligibilityReason };
+    }
+
+    return { eligible: true, reason: 'ELIGIBLE' as ReviewEligibilityReason };
+  }
+
+  async checkReviewEligibility(slug: string, userId: string | null) {
+    const book = await this.fetchBookBySlug(slug);
+    return this.evaluateReviewEligibility(book.id, userId);
+  }
+
+  private async refreshBookRating(bookId: string) {
+    const [row] = await this.db
+      .select({
+        total: sql<number>`COUNT(*)`,
+        sum: sql<number>`COALESCE(SUM(${schema.reviews.rating}), 0)`,
+      })
+      .from(schema.reviews)
+      .where(
+        and(
+          eq(schema.reviews.bookId, bookId),
+          sql`${schema.reviews.deletedAt} IS NULL`,
+        ),
+      );
+
+    const total = Number(row?.total ?? 0);
+    const ratingSum = Number((row?.sum ?? 0) as number);
+    const averageRating = total ? Number((ratingSum / total).toFixed(2)) : 0;
+
+    await this.db
+      .update(schema.books)
+      .set({
+        ratingAvg: averageRating.toFixed(2),
+        ratingCount: total,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.books.id, bookId));
+
+    return { averageRating, totalReviews: total };
   }
 
   async findAll(query: ListBooksQuery) {
@@ -288,19 +389,102 @@ export class BooksService {
     return { ...book, reviews, averageRating, totalReviews };
   }
 
+  async createReview(
+    slug: string,
+    input: CreateReviewInput,
+    userId: string,
+  ): Promise<{
+    data: {
+      review: ReviewWithUser;
+      rating: { averageRating: number; totalReviews: number };
+    };
+    meta: Record<string, never>;
+    error: Record<string, never>;
+    ok: true;
+  }> {
+    const book = await this.fetchBookBySlug(slug);
+    const eligibility = await this.evaluateReviewEligibility(book.id, userId);
+
+    if (!eligibility.eligible) {
+      const message =
+        eligibility.reason === 'UNAUTHENTICATED'
+          ? 'Authentication required'
+          : eligibility.reason === 'NOT_PURCHASED'
+          ? 'You must complete a purchase of this book before reviewing'
+          : 'You have already reviewed this book';
+      throw new BadRequestException(message);
+    }
+
+    const id = randomUUID();
+    const now = new Date();
+
+    await this.db.insert(schema.reviews).values({
+      id,
+      userId,
+      bookId: book.id,
+      rating: input.rating,
+      title: input.title ?? null,
+      body: input.body,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const [created] = await this.db
+      .select({
+        id: schema.reviews.id,
+        userId: schema.reviews.userId,
+        bookId: schema.reviews.bookId,
+        rating: schema.reviews.rating,
+        title: schema.reviews.title,
+        body: schema.reviews.body,
+        createdAt: schema.reviews.createdAt,
+        updatedAt: schema.reviews.updatedAt,
+        deletedAt: schema.reviews.deletedAt,
+        userName: schema.users.name,
+      })
+      .from(schema.reviews)
+      .leftJoin(schema.users, eq(schema.reviews.userId, schema.users.id))
+      .where(eq(schema.reviews.id, id))
+      .limit(1)
+      .offset(0);
+
+    const rating = await this.refreshBookRating(book.id);
+
+    return {
+      data: {
+        review: created as ReviewWithUser,
+        rating,
+      },
+      meta: {},
+      error: {},
+      ok: true,
+    };
+  }
+
   async getReviewsBySlug(
     slug: string,
     query: ListBookReviewsQuery,
   ): Promise<{
-    book: {
-      id: string;
-      title: string;
-      authorName: string | null;
-      averageRating: number;
-      totalReviews: number;
+    data: {
+      book: {
+        id: string;
+        title: string;
+        coverUrl: string;
+        authorName: string | null;
+        averageRating: number;
+        totalReviews: number;
+      };
+      reviews: ReviewWithUser[];
+      ratingCounts: RatingCounts;
     };
-    reviews: ReviewWithUser[];
-    ratingCounts: RatingCounts;
+    meta: {
+      page: number;
+      pageSize: number;
+      total: number;
+      totalPages: number;
+    };
+    error: Record<string, never>;
+    ok: true;
   }> {
     const book = await this.fetchBookBySlug(slug);
     const baseFilter = and(
@@ -325,34 +509,57 @@ export class BooksService {
       reviewFilter = and(reviewFilter, eq(schema.reviews.rating, query.rating));
     }
 
-    const reviews = await this.db
-      .select({
-        id: schema.reviews.id,
-        userId: schema.reviews.userId,
-        bookId: schema.reviews.bookId,
-        rating: schema.reviews.rating,
-        title: schema.reviews.title,
-        body: schema.reviews.body,
-        createdAt: schema.reviews.createdAt,
-        updatedAt: schema.reviews.updatedAt,
-        deletedAt: schema.reviews.deletedAt,
-        userName: schema.users.name,
-      })
-      .from(schema.reviews)
-      .leftJoin(schema.users, eq(schema.reviews.userId, schema.users.id))
-      .where(reviewFilter)
-      .orderBy(this.buildReviewOrder(query.sort ?? 'newest'));
+    const offset = (query.page - 1) * query.pageSize;
+
+    const [reviews, [{ total }]] = await Promise.all([
+      this.db
+        .select({
+          id: schema.reviews.id,
+          userId: schema.reviews.userId,
+          bookId: schema.reviews.bookId,
+          rating: schema.reviews.rating,
+          title: schema.reviews.title,
+          body: schema.reviews.body,
+          createdAt: schema.reviews.createdAt,
+          updatedAt: schema.reviews.updatedAt,
+          deletedAt: schema.reviews.deletedAt,
+          userName: schema.users.name,
+        })
+        .from(schema.reviews)
+        .leftJoin(schema.users, eq(schema.reviews.userId, schema.users.id))
+        .where(reviewFilter)
+        .orderBy(this.buildReviewOrder(query.sort ?? 'newest'))
+        .limit(query.pageSize)
+        .offset(offset),
+      this.db
+        .select({ total: sql<number>`COUNT(*)` })
+        .from(schema.reviews)
+        .where(reviewFilter),
+    ]);
+
+    const totalPages = Math.ceil(total / query.pageSize);
 
     return {
-      book: {
-        id: book.id,
-        title: book.title,
-        authorName: book.authorName,
-        averageRating,
-        totalReviews,
+      data: {
+        book: {
+          id: book.id,
+          title: book.title,
+          coverUrl: book.coverUrl,
+          authorName: book.authorName,
+          averageRating,
+          totalReviews,
+        },
+        reviews: reviews as ReviewWithUser[],
+        ratingCounts,
       },
-      reviews: reviews as ReviewWithUser[],
-      ratingCounts,
+      meta: {
+        page: query.page,
+        pageSize: query.pageSize,
+        total,
+        totalPages,
+      },
+      error: {},
+      ok: true,
     };
   }
 

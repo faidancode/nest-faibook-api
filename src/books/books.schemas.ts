@@ -108,12 +108,62 @@ const ratingFilterSchema = z
 
 export const ReviewSortEnum = z.enum(['newest', 'oldest', 'highest', 'lowest']);
 
-export const ListBookReviewsQuerySchema = z.object({
-  sort: ReviewSortEnum.optional().default('newest'),
-  rating: ratingFilterSchema,
-});
+const pageSizeInputSchema = z
+  .union([z.string(), z.number()])
+  .optional()
+  .transform((value) => {
+    if (value === undefined || value === null) {
+      return undefined;
+    }
+
+    const parsed =
+      typeof value === 'number'
+        ? value
+        : Number.parseInt(value.trim(), 10);
+
+    if (!Number.isFinite(parsed)) {
+      return undefined;
+    }
+
+    return parsed;
+  })
+  .pipe(z.number().int().min(1).max(100).optional());
+
+export const ListBookReviewsQuerySchema = z
+  .object({
+    page: z
+      .union([z.string(), z.number()])
+      .optional()
+      .transform((v) => {
+        const parsed =
+          typeof v === 'number'
+            ? v
+            : v
+            ? Number.parseInt(v.trim(), 10)
+            : 1;
+
+        return Number.isFinite(parsed) ? parsed : 1;
+      })
+      .pipe(z.number().int().min(1)),
+    pageSize: pageSizeInputSchema,
+    limit: pageSizeInputSchema,
+    sort: ReviewSortEnum.optional().default('newest'),
+    rating: ratingFilterSchema,
+  })
+  .transform(({ limit, pageSize, ...rest }) => ({
+    ...rest,
+    pageSize: pageSize ?? limit ?? 10,
+  }));
 
 export type ListBookReviewsQuery = z.infer<typeof ListBookReviewsQuerySchema>;
+
+export const CreateReviewSchema = z.object({
+  rating: z.coerce.number().int().min(1).max(5),
+  title: z.string().max(120).optional(),
+  body: z.string().min(1),
+});
+
+export type CreateReviewInput = z.infer<typeof CreateReviewSchema>;
 
 export const CreateBookSchema = z.object({
   title: z.string().min(1).max(200),

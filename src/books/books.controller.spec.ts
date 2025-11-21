@@ -11,7 +11,9 @@ describe('BooksController', () => {
       findAll: jest.fn(),
       findOne: jest.fn(),
       getReviewsBySlug: jest.fn(),
+      checkReviewEligibility: jest.fn(),
       create: jest.fn(),
+      createReview: jest.fn(),
       update: jest.fn(),
       remove: jest.fn(),
     };
@@ -86,22 +88,73 @@ describe('BooksController', () => {
 
   it('parses review query parameters before delegating to service', async () => {
     const payload = {
-      book: { id: 'book-1', title: 'Book A' },
-      reviews: [],
-      ratingCounts: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+      data: {
+        book: { id: 'book-1', title: 'Book A' },
+        reviews: [],
+        ratingCounts: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+      },
+      meta: { page: 1, pageSize: 3, total: 0, totalPages: 0 },
+      error: {},
+      ok: true,
     };
     service.getReviewsBySlug.mockResolvedValue(payload as any);
 
     const reviews = await controller.getReviewsBySlug('book-a', {
       sort: 'highest',
       rating: '4',
+      limit: '3',
+      page: '1',
     });
 
     expect(service.getReviewsBySlug).toHaveBeenCalledWith('book-a', {
       sort: 'highest',
       rating: 4,
+      page: 1,
+      pageSize: 3,
     });
     expect(reviews).toBe(payload);
+  });
+
+  it('returns eligibility payload with user from token when available', async () => {
+    const payload = { eligible: true, reason: 'ELIGIBLE' };
+    service.checkReviewEligibility.mockResolvedValue(payload as any);
+
+    const resp = await controller.getReviewEligibility('book-a', {
+      user: { sub: 'user-1' },
+    } as any);
+
+    expect(service.checkReviewEligibility).toHaveBeenCalledWith(
+      'book-a',
+      'user-1',
+    );
+    expect(resp).toEqual({
+      data: payload,
+      meta: {},
+      error: {},
+      ok: true,
+    });
+  });
+
+  it('creates a review with parsed payload and user id', async () => {
+    const payload = {
+      data: { review: { id: 'r1' }, rating: { averageRating: 5, totalReviews: 1 } },
+      meta: {},
+      error: {},
+      ok: true,
+    };
+    service.createReview.mockResolvedValue(payload as any);
+
+    const result = await controller.createReview(
+      'book-a',
+      { rating: '5', body: 'Nice book' },
+      { user: { sub: 'user-1' } } as any,
+    );
+
+    expect(service.createReview).toHaveBeenCalledWith('book-a', {
+      rating: 5,
+      body: 'Nice book',
+    }, 'user-1');
+    expect(result).toBe(payload);
   });
 
   it('validates payload when creating book', async () => {
