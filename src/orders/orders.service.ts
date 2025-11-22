@@ -6,10 +6,11 @@ import {
   Optional,
 } from '@nestjs/common';
 import type { MySql2Database, MySql2Transaction } from 'drizzle-orm/mysql2';
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, like, or, sql } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import * as schema from '../infra/drizzle/schema';
 import type {
+  AdminListOrdersQuery,
   AdminUpdateStatusInput,
   AddressSnapshot,
   CheckoutOrderInput,
@@ -33,7 +34,28 @@ type DbExecutor = Db | Tx;
 
 type OrderRow = typeof schema.orders.$inferSelect;
 type OrderItemRow = typeof schema.orderItems.$inferSelect;
+type OrderItemWithBook = OrderItemRow & {
+  bookTitle?: string | null;
+  bookAuthor?: string | null;
+  bookCoverUrl?: string | null;
+};
 type AddressRow = typeof schema.addresses.$inferSelect;
+
+type AdminOrderListItem = {
+  id: string;
+  orderNumber: string | null;
+  userId: string;
+  userName: string | null;
+  userEmail: string | null;
+  status: string;
+  paymentStatus: string;
+  paymentMethod: string;
+  totalCents: number;
+  placedAt: Date;
+  paidAt: Date | null;
+  receiptNo: string | null;
+  itemsCount: number;
+};
 
 type CartWithItems = {
   cartId: string;
@@ -107,7 +129,7 @@ export class OrdersService {
     };
   }
 
-  private mapOrder(row: OrderRow, items: OrderItemRow[]): OrderOutput {
+  private mapOrder(row: OrderRow, items: OrderItemWithBook[]): OrderOutput {
     return {
       id: row.id,
       orderNumber: row.orderNumber ?? '',
@@ -134,6 +156,9 @@ export class OrdersService {
         orderId: item.orderId,
         bookId: item.bookId,
         titleSnapshot: item.titleSnapshot,
+        bookTitle: item.bookTitle ?? item.titleSnapshot,
+        bookAuthor: item.bookAuthor ?? null,
+        bookCoverUrl: item.bookCoverUrl ?? null,
         unitPriceCents: item.unitPriceCents,
         quantity: item.quantity,
         totalCents: item.totalCents,
@@ -246,8 +271,8 @@ export class OrdersService {
   private async getOrderItemsMap(
     executor: DbExecutor,
     orderIds: string[],
-  ): Promise<Map<string, OrderItemRow[]>> {
-    const map = new Map<string, OrderItemRow[]>();
+  ): Promise<Map<string, OrderItemWithBook[]>> {
+    const map = new Map<string, OrderItemWithBook[]>();
     if (orderIds.length === 0) {
       return map;
     }
@@ -284,6 +309,28 @@ export class OrdersService {
       where = and(
         where,
         eq(schema.orders.paymentStatus, query.paymentStatus),
+      );
+    }
+
+    return where;
+  }
+
+  private buildAdminListWhere(query: AdminListOrdersQuery) {
+    let where: any = sql`${schema.orders.deletedAt} IS NULL`;
+
+    if (query.status) {
+      where = and(where, eq(schema.orders.status, query.status));
+    }
+
+    if (query.search?.trim()) {
+      const term = `%${query.search.trim()}%`;
+      where = and(
+        where,
+        or(
+          like(schema.orders.orderNumber, term),
+          like(schema.users.name, term),
+          like(schema.users.email, term),
+        ),
       );
     }
 
@@ -542,8 +589,23 @@ export class OrdersService {
   ): Promise<OrderOutput> {
     const order = await this.findOrderRow(orderId, userId);
     const items = await this.db
-      .select()
+      .select({
+        id: schema.orderItems.id,
+        orderId: schema.orderItems.orderId,
+        bookId: schema.orderItems.bookId,
+        titleSnapshot: schema.orderItems.titleSnapshot,
+        unitPriceCents: schema.orderItems.unitPriceCents,
+        quantity: schema.orderItems.quantity,
+        totalCents: schema.orderItems.totalCents,
+        createdAt: schema.orderItems.createdAt,
+        updatedAt: schema.orderItems.updatedAt,
+        bookTitle: schema.books.title,
+        bookAuthor: schema.authors.name,
+        bookCoverUrl: schema.books.coverUrl,
+      })
       .from(schema.orderItems)
+      .leftJoin(schema.books, eq(schema.orderItems.bookId, schema.books.id))
+      .leftJoin(schema.authors, eq(schema.books.authorId, schema.authors.id))
       .where(eq(schema.orderItems.orderId, orderId));
 
     return this.mapOrder(order, items);
@@ -590,6 +652,115 @@ export class OrdersService {
     };
   }
 
+  async getAdminOrdersList(query: AdminListOrdersQuery): Promise<{
+    items: AdminOrderListItem[];
+    meta: { page: number; pageSize: number; total: number; totalPages: number };
+  }> {
+    const where = this.buildAdminListWhere(query);
+    const offset = (query.page - 1) * query.limit;
+
+    const [rows, [{ total }]] = await Promise.all([
+      this.db
+        .select({
+          id: schema.orders.id,
+          orderNumber: schema.orders.orderNumber,
+          userId: schema.orders.userId,
+          userName: schema.users.name,
+          userEmail: schema.users.email,
+          status: schema.orders.status,
+          paymentStatus: schema.orders.paymentStatus,
+          paymentMethod: schema.orders.paymentMethod,
+          totalCents: schema.orders.totalCents,
+          placedAt: schema.orders.placedAt,
+          paidAt: schema.orders.paidAt,
+          receiptNo: schema.orders.receiptNo,
+          itemsCount: sql<number>`COUNT(${schema.orderItems.id})`,
+        })
+        .from(schema.orders)
+        .leftJoin(schema.users, eq(schema.orders.userId, schema.users.id))
+        .leftJoin(
+          schema.orderItems,
+          eq(schema.orders.id, schema.orderItems.orderId),
+        )
+        .where(where)
+        .groupBy(
+          schema.orders.id,
+          schema.orders.orderNumber,
+          schema.orders.userId,
+          schema.users.name,
+          schema.users.email,
+          schema.orders.status,
+          schema.orders.paymentStatus,
+          schema.orders.paymentMethod,
+          schema.orders.totalCents,
+          schema.orders.placedAt,
+          schema.orders.paidAt,
+          schema.orders.receiptNo,
+        )
+        .orderBy(desc(schema.orders.placedAt))
+        .limit(query.limit)
+        .offset(offset),
+      this.db
+        .select({ total: sql<number>`COUNT(*)` })
+        .from(schema.orders)
+        .leftJoin(schema.users, eq(schema.orders.userId, schema.users.id))
+        .where(where),
+    ]);
+
+    return {
+      items: rows as AdminOrderListItem[],
+      meta: {
+        page: query.page,
+        pageSize: query.limit,
+        total,
+        totalPages: Math.ceil(total / query.limit),
+      },
+    };
+  }
+
+  async getAdminOrdersStats(): Promise<{
+    total: number;
+    paid: number;
+    shipped: number;
+    completed: number;
+    cancelled: number;
+    pending: number;
+    processing: number;
+  }> {
+    const rows = await this.db
+      .select({
+        status: schema.orders.status,
+        count: sql<number>`COUNT(*)`,
+      })
+      .from(schema.orders)
+      .where(sql`${schema.orders.deletedAt} IS NULL`)
+      .groupBy(schema.orders.status);
+
+    const stats = {
+      total: 0,
+      paid: 0,
+      shipped: 0,
+      completed: 0,
+      cancelled: 0,
+      pending: 0,
+      processing: 0,
+    };
+
+    for (const row of rows) {
+      const status = row.status as OrderStatus;
+      const count = Number(row.count ?? 0);
+      stats.total += count;
+      if (status === 'PAID') stats.paid += count;
+      if (status === 'SHIPPED') stats.shipped += count;
+      if (status === 'DELIVERED') stats.completed += count;
+      if (status === 'CANCELLED') stats.cancelled += count;
+      if (status === 'PENDING') stats.pending += count;
+      if (status === 'PROCESSING') stats.processing += count;
+    }
+
+    return stats;
+  }
+
   async updateCustomerStatus(
     orderId: string,
     userId: string,
@@ -624,6 +795,7 @@ export class OrdersService {
   ): Promise<OrderOutput> {
     const order = await this.findOrderRow(orderId);
     const currentStatus = order.status as OrderStatus;
+    console.log({currentStatus});
 
     if (input.nextStatus === 'PROCESSING') {
       this.ensureStatus(

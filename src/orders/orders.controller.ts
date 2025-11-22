@@ -9,22 +9,16 @@ import {
   Param,
   Patch,
   Post,
-  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { OrdersService } from './orders.service';
 import {
-  AdminUpdateStatusSchema,
   CheckoutOrderSchema,
   CustomerUpdateStatusSchema,
-  ListOrdersQuerySchema,
-  UpdatePaymentStatusSchema,
 } from './schemas/orders.schemas';
 import { JwtAuthGuard } from '../auth/jwt.guard';
-import { RolesGuard } from '../auth/roles.guard';
-import { Roles } from '../auth/roles.decorator';
 import type { JwtPayload } from '../auth/auth.schemas';
 
 @Controller('v1/orders')
@@ -39,14 +33,6 @@ export class OrdersController {
     if (user.sub !== requestedUserId) {
       throw new ForbiddenException('Cannot access other user orders');
     }
-  }
-
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
-  @Get()
-  async getAll(@Query() query: unknown) {
-    const parsed = ListOrdersQuerySchema.parse(query);
-    return this.ordersService.getAllOrders(parsed);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -98,21 +84,5 @@ export class OrdersController {
       currentUser.sub,
       parsed,
     );
-  }
-
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
-  @Patch(':id/status/admin')
-  async updateAdminStatus(@Param('id') id: string, @Body() body: unknown) {
-    const parsed = AdminUpdateStatusSchema.parse(body);
-    return this.ordersService.updateAdminStatus(id, parsed);
-  }
-
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
-  @Patch(':id/payment-status')
-  async updatePaymentStatus(@Param('id') id: string, @Body() body: unknown) {
-    const parsed = UpdatePaymentStatusSchema.parse(body);
-    return this.ordersService.updatePaymentStatus(id, parsed);
   }
 }

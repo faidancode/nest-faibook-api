@@ -5,30 +5,22 @@ import { ZodError } from 'zod';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 import { JwtAuthGuard } from '../auth/jwt.guard';
-import { RolesGuard } from '../auth/roles.guard';
-import { ROLES_KEY } from '../auth/roles.decorator';
 
 describe('OrdersController', () => {
   let controller: OrdersController;
   let service: {
     checkout: jest.Mock;
-    getAllOrders: jest.Mock;
     getOrdersByUserId: jest.Mock;
     getOrderDetails: jest.Mock;
     updateCustomerStatus: jest.Mock;
-    updateAdminStatus: jest.Mock;
-    updatePaymentStatus: jest.Mock;
   };
 
   beforeEach(async () => {
     service = {
       checkout: jest.fn(),
-      getAllOrders: jest.fn(),
       getOrdersByUserId: jest.fn(),
       getOrderDetails: jest.fn(),
       updateCustomerStatus: jest.fn(),
-      updateAdminStatus: jest.fn(),
-      updatePaymentStatus: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -126,34 +118,6 @@ describe('OrdersController', () => {
     );
   });
 
-  it('validates admin status payload and calls service', async () => {
-    const body = { nextStatus: 'PROCESSING' };
-    await controller.updateAdminStatus('order-1', body);
-    expect(service.updateAdminStatus).toHaveBeenCalledWith('order-1', body);
-  });
-
-  it('updates payment status via admin endpoint', async () => {
-    const body = { paymentStatus: 'PAID' };
-    await controller.updatePaymentStatus('order-1', body);
-    expect(service.updatePaymentStatus).toHaveBeenCalledWith('order-1', body);
-  });
-
-  it('parses list query parameters for admin listing', async () => {
-    service.getAllOrders.mockResolvedValue({ items: [], meta: {} });
-    await controller.getAll({
-      page: '2',
-      pageSize: '5',
-      status: 'PAID',
-    });
-    expect(service.getAllOrders).toHaveBeenCalledWith(
-      expect.objectContaining({
-        page: 2,
-        pageSize: 5,
-        status: 'PAID',
-      }),
-    );
-  });
-
   it('propagates service errors for checkout so filters can map them', async () => {
     const req = createRequest(userId, 'CUSTOMER');
     service.checkout.mockRejectedValue(new BadRequestException('fail'));
@@ -178,18 +142,12 @@ describe('OrdersController', () => {
       checkoutGuards?.some((guard: any) => guard === JwtAuthGuard),
     ).toBe(true);
 
-    const adminGuards = Reflect.getMetadata(
+    const customerStatusGuards = Reflect.getMetadata(
       '__guards__',
-      OrdersController.prototype.getAll,
+      OrdersController.prototype.updateCustomerStatus,
     );
-    expect(adminGuards).toEqual([JwtAuthGuard, RolesGuard]);
-  });
-
-  it('exposes roles metadata for admin routes', () => {
-    const roles = Reflect.getMetadata(
-      ROLES_KEY,
-      OrdersController.prototype.getAll,
-    );
-    expect(roles).toEqual(['ADMIN']);
+    expect(
+      customerStatusGuards?.some((guard: any) => guard === JwtAuthGuard),
+    ).toBe(true);
   });
 });

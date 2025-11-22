@@ -28,7 +28,8 @@
     "seed:authors": "ts-node src/scripts/seed-authors.ts",
     "seed:users": "ts-node src/scripts/seed-users.ts",
     "seed:reviews": "ts-node src/scripts/seed-reviews.ts",
-    "seed:orders": "ts-node src/scripts/seed-orders.ts"
+    "seed:orders": "ts-node src/scripts/seed-orders.ts",
+    "seed:orders-admin": "ts-node src/scripts/seed-orders-admin.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

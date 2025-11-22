@@ -29,6 +29,9 @@ export const OrderItemSchema = z.object({
   orderId: z.uuid(),
   bookId: z.uuid(),
   titleSnapshot: z.string(),
+  bookTitle: z.string(),
+  bookAuthor: z.string().nullable(),
+  bookCoverUrl: z.string().nullable(),
   unitPriceCents: z.number().int().nonnegative(),
   quantity: z.number().int().positive(),
   totalCents: z.number().int().nonnegative(),
@@ -76,6 +79,21 @@ export const ListOrdersQuerySchema = z.object({
   paymentStatus: PaymentStatusEnum.optional(),
 });
 
+export const AdminListOrdersQuerySchema = z.object({
+  page: z
+    .string()
+    .optional()
+    .transform((v) => (v ? parseInt(v, 10) : 1))
+    .pipe(z.number().int().min(1)),
+  limit: z
+    .string()
+    .optional()
+    .transform((v) => (v ? parseInt(v, 10) : 20))
+    .pipe(z.number().int().min(1).max(100)),
+  status: OrderStatusEnum.optional(),
+  search: z.string().optional(),
+});
+
 export const CheckoutOrderSchema = z.object({
   userId: z.uuid(),
   addressId: z.uuid(),
@@ -108,6 +126,7 @@ export const UpdatePaymentStatusSchema = z.object({
 export type OrderItemOutput = z.infer<typeof OrderItemSchema>;
 export type OrderOutput = z.infer<typeof OrderSchema>;
 export type ListOrdersQuery = z.infer<typeof ListOrdersQuerySchema>;
+export type AdminListOrdersQuery = z.infer<typeof AdminListOrdersQuerySchema>;
 export type CheckoutOrderInput = z.infer<typeof CheckoutOrderSchema>;
 export type CustomerUpdateStatusInput = z.infer<
   typeof CustomerUpdateStatusSchema

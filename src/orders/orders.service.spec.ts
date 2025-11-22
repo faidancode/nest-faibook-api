@@ -25,6 +25,22 @@ const createSelectLimitBuilder = (rows: any[]) => ({
   limit: jest.fn().mockResolvedValue(rows),
 });
 
+const createAdminListBuilder = (rows: any[]) => ({
+  from: jest.fn().mockReturnThis(),
+  leftJoin: jest.fn().mockReturnThis(),
+  where: jest.fn().mockReturnThis(),
+  groupBy: jest.fn().mockReturnThis(),
+  orderBy: jest.fn().mockReturnThis(),
+  limit: jest.fn().mockReturnThis(),
+  offset: jest.fn().mockResolvedValue(rows),
+});
+
+const createAdminCountBuilder = (total: number) => ({
+  from: jest.fn().mockReturnThis(),
+  leftJoin: jest.fn().mockReturnThis(),
+  where: jest.fn().mockResolvedValue([{ total }]),
+});
+
 const baseDate = new Date();
 const buildOrder = (overrides: Partial<OrderOutput> = {}): OrderOutput => {
   const defaultAddress = {
@@ -84,7 +100,7 @@ const buildOrder = (overrides: Partial<OrderOutput> = {}): OrderOutput => {
 
 describe('OrdersService', () => {
   let service: OrdersService;
-  let db: { transaction: jest.Mock; update: jest.Mock };
+  let db: { transaction: jest.Mock; update: jest.Mock; select: jest.Mock };
   let paymentIntegration: { handleAfterCheckout: jest.Mock };
   let midtransService: { createTransactionToken: jest.Mock };
   let loadProfileSpy: jest.SpyInstance;
@@ -93,6 +109,7 @@ describe('OrdersService', () => {
     db = {
       transaction: jest.fn(),
       update: jest.fn(),
+      select: jest.fn(),
     };
 
     paymentIntegration = {
@@ -689,5 +706,68 @@ describe('OrdersService', () => {
       service.updatePaymentStatus('order-1', { paymentStatus: 'PAID' }),
     ).rejects.toThrow('Cannot transition payment from REFUNDED to PAID');
     expect(db.update).not.toHaveBeenCalled();
+  });
+
+  it('returns lightweight admin list with pagination metadata', async () => {
+    const rows = [
+      {
+        id: 'order-1',
+        orderNumber: 'ORD-1',
+        userId: 'user-1',
+        userName: 'Alice',
+        userEmail: 'a@example.com',
+        status: 'PAID',
+        paymentStatus: 'PAID',
+        paymentMethod: 'VA',
+        totalCents: 1000,
+        placedAt: baseDate,
+        paidAt: baseDate,
+        receiptNo: 'R-1',
+        itemsCount: 2,
+      },
+    ];
+
+    db.select
+      .mockReturnValueOnce(createAdminListBuilder(rows))
+      .mockReturnValueOnce(createAdminCountBuilder(rows.length));
+
+    const result = await service.getAdminOrdersList({
+      page: 1,
+      limit: 20,
+      status: 'PAID',
+      search: 'ORD',
+    });
+
+    expect(result).toEqual({
+      items: rows,
+      meta: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+    });
+    expect(db.select).toHaveBeenCalledTimes(2);
+  });
+
+  it('aggregates admin order stats by status', async () => {
+    db.select.mockReturnValueOnce({
+      from: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockResolvedValue([
+        { status: 'PAID', count: 3 },
+        { status: 'SHIPPED', count: 2 },
+        { status: 'DELIVERED', count: 4 },
+        { status: 'CANCELLED', count: 1 },
+        { status: 'PENDING', count: 2 },
+      ]),
+    });
+
+    const stats = await service.getAdminOrdersStats();
+
+    expect(stats).toEqual({
+      total: 12,
+      paid: 3,
+      shipped: 2,
+      completed: 4,
+      cancelled: 1,
+      pending: 2,
+      processing: 0,
+    });
   });
 });
