@@ -37,6 +37,14 @@ export class BooksController {
     return this.booksService.findAll(parsed);
   }
 
+  @Get('admin/:id/reviews')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async getReviewsByBookId(@Param('id') id: string, @Query() query: unknown) {
+    const parsed = ListBookReviewsQuerySchema.parse(query);
+    return this.booksService.getReviewsByBookId(id, parsed);
+  }
+
   @Get(':slug/reviews')
   async getReviewsBySlug(@Param('slug') slug: string, @Query() query: unknown) {
     const parsed = ListBookReviewsQuerySchema.parse(query);
@@ -45,10 +53,7 @@ export class BooksController {
 
   @Get(':slug/reviews/eligibility')
   @UseGuards(OptionalJwtAuthGuard)
-  async getReviewEligibility(
-    @Param('slug') slug: string,
-    @Req() req: Request,
-  ) {
+  async getReviewEligibility(@Param('slug') slug: string, @Req() req: Request) {
     const currentUser = req.user as JwtPayload | null;
     const eligibility = await this.booksService.checkReviewEligibility(
       slug,
@@ -75,7 +80,7 @@ export class BooksController {
     return this.booksService.createReview(slug, parsed, currentUser.sub);
   }
 
-  @Get('detail/:id')
+  @Get('admin/:id')
   @UseGuards(OptionalJwtAuthGuard)
   async findOne(@Param('id') id: string, @Req() req: Request) {
     const currentUser = req.user as JwtPayload | null;
@@ -109,9 +114,14 @@ export class BooksController {
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @HttpCode(HttpStatus.OK)
   async remove(@Param('id') id: string) {
     await this.booksService.remove(id);
-    return null;
+    return {
+      ok: true,
+      data: null,
+      meta: null,
+      error: null,
+    };
   }
 }

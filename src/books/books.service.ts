@@ -135,6 +135,24 @@ export class BooksService {
     return row as BookWithAuthorName;
   }
 
+  private async fetchBookById(id: string): Promise<BookWithAuthorName> {
+    const [row] = await this.db
+      .select(bookWithAuthorSelection)
+      .from(schema.books)
+      .leftJoin(
+        schema.authors,
+        eq(schema.books.authorId, schema.authors.id),
+      )
+      .where(and(eq(schema.books.id, id), sql`${schema.books.deletedAt} IS NULL`))
+      .limit(1);
+
+    if (!row) {
+      throw new NotFoundException('Book not found');
+    }
+
+    return row as BookWithAuthorName;
+  }
+
   private async hasExistingReview(bookId: string, userId: string) {
     const [row] = await this.db
       .select({ id: schema.reviews.id })
@@ -456,6 +474,108 @@ export class BooksService {
         rating,
       },
       meta: {},
+      error: {},
+      ok: true,
+    };
+  }
+
+  async getReviewsByBookId(
+    bookId: string,
+    query: ListBookReviewsQuery,
+  ): Promise<{
+    data: {
+      book: {
+        id: string;
+        title: string;
+        coverUrl: string;
+        authorName: string | null;
+        averageRating: number;
+        totalReviews: number;
+      };
+      reviews: ReviewWithUser[];
+      ratingCounts: RatingCounts;
+    };
+    meta: {
+      page: number;
+      pageSize: number;
+      total: number;
+      totalPages: number;
+    };
+    error: Record<string, never>;
+    ok: true;
+  }> {
+    const book = await this.fetchBookById(bookId);
+    const baseFilter = and(
+      eq(schema.reviews.bookId, book.id),
+      sql`${schema.reviews.deletedAt} IS NULL`,
+    );
+
+    const ratingGroups = await this.db
+      .select({
+        rating: schema.reviews.rating,
+        count: sql<number>`COUNT(*)`,
+      })
+      .from(schema.reviews)
+      .where(baseFilter)
+      .groupBy(schema.reviews.rating);
+
+    const { counts: ratingCounts, averageRating, totalReviews } =
+      this.summarizeRatingCounts(ratingGroups);
+
+    let reviewFilter = baseFilter;
+    if (typeof query.rating === 'number') {
+      reviewFilter = and(reviewFilter, eq(schema.reviews.rating, query.rating));
+    }
+
+    const offset = (query.page - 1) * query.pageSize;
+
+    const [reviews, [{ total }]] = await Promise.all([
+      this.db
+        .select({
+          id: schema.reviews.id,
+          userId: schema.reviews.userId,
+          bookId: schema.reviews.bookId,
+          rating: schema.reviews.rating,
+          title: schema.reviews.title,
+          body: schema.reviews.body,
+          createdAt: schema.reviews.createdAt,
+          updatedAt: schema.reviews.updatedAt,
+          deletedAt: schema.reviews.deletedAt,
+          userName: schema.users.name,
+        })
+        .from(schema.reviews)
+        .leftJoin(schema.users, eq(schema.reviews.userId, schema.users.id))
+        .where(reviewFilter)
+        .orderBy(this.buildReviewOrder(query.sort ?? 'newest'))
+        .limit(query.pageSize)
+        .offset(offset),
+      this.db
+        .select({ total: sql<number>`COUNT(*)` })
+        .from(schema.reviews)
+        .where(reviewFilter),
+    ]);
+
+    const totalPages = Math.ceil(total / query.pageSize);
+
+    return {
+      data: {
+        book: {
+          id: book.id,
+          title: book.title,
+          coverUrl: book.coverUrl,
+          authorName: book.authorName,
+          averageRating,
+          totalReviews,
+        },
+        reviews: reviews as ReviewWithUser[],
+        ratingCounts,
+      },
+      meta: {
+        page: query.page,
+        pageSize: query.pageSize,
+        total,
+        totalPages,
+      },
       error: {},
       ok: true,
     };

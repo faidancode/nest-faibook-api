@@ -10,19 +10,19 @@ import {
   Post,
   Query,
   UseGuards,
-} from "@nestjs/common";
-import { CategoriesService } from "./categories.service";
+} from '@nestjs/common';
+import { CategoriesService } from './categories.service';
 import {
   CreateCategorySchema,
   ListCategoriesQuerySchema,
   UpdateCategorySchema,
-} from "./categories.schemas";
-import { ListBooksQuerySchema } from "../books/books.schemas";
-import { JwtAuthGuard } from "../auth/jwt.guard";
-import { RolesGuard } from "../auth/roles.guard";
-import { Roles } from "../auth/roles.decorator";
+} from './categories.schemas';
+import { ListBooksQuerySchema } from '../books/books.schemas';
+import { JwtAuthGuard } from '../auth/jwt.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 
-@Controller("v1/categories")
+@Controller('v1/categories')
 export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
@@ -34,15 +34,15 @@ export class CategoriesController {
     return result;
   }
 
-  @Get("/admin/:id")
-  async findOne(@Param("id") id: string) {
+  @Get('/admin/:id')
+  async findOne(@Param('id') id: string) {
     const cat = await this.categoriesService.findOne(id);
     return cat;
   }
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("ADMIN")
+  @Roles('ADMIN')
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() body: unknown) {
     const parsed = CreateCategorySchema.parse(body);
@@ -50,27 +50,33 @@ export class CategoriesController {
     return created;
   }
 
-  @Patch(":id")
+  @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("ADMIN")
-  async update(@Param("id") id: string, @Body() body: unknown) {
+  @Roles('ADMIN')
+  async update(@Param('id') id: string, @Body() body: unknown) {
     const parsed = UpdateCategorySchema.parse(body);
     const updated = await this.categoriesService.update(id, parsed);
     return updated;
   }
 
-  @Get(":slug")
-  async findBySlug(@Param("slug") slug: string, @Query() query: unknown) {
+  @Get(':slug')
+  async findBySlug(@Param('slug') slug: string, @Query() query: unknown) {
     const parsed = ListBooksQuerySchema.parse(query);
     return this.categoriesService.findBooksBySlug(slug, parsed);
   }
 
-  @Delete(":id")
+  @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("ADMIN")
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(@Param("id") id: string) {
+  @Roles('ADMIN')
+  @HttpCode(HttpStatus.OK)
+  async remove(@Param('id') id: string) {
     await this.categoriesService.remove(id);
-    return null;
+
+    return {
+      ok: true,
+      data: null,
+      meta: null,
+      error: null,
+    };
   }
 }

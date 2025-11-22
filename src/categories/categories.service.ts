@@ -1,4 +1,9 @@
-import { Inject, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import type { MySql2Database } from "drizzle-orm/mysql2";
 import { and, asc, desc, eq, like, sql } from "drizzle-orm";
 import * as schema from "../infra/drizzle/schema";
@@ -114,13 +119,42 @@ export class CategoriesService {
   }
 
   async create(input: CreateCategoryInput): Promise<CategoryRow> {
-    const id = randomUUID();
     const slug =
       input.slug ??
       input.name
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/(^-|-$)+/g, "");
+
+    const [existing] = await this.db
+      .select()
+      .from(schema.categories)
+      .where(eq(schema.categories.slug, slug))
+      .limit(1);
+
+    if (existing && !existing.deletedAt) {
+      throw new ConflictException("Category slug already exists");
+    }
+
+    // If slug exists but the record was soft-deleted, restore it instead of failing unique constraint
+    if (existing && existing.deletedAt) {
+      await this.db
+        .update(schema.categories)
+        .set({
+          name: input.name,
+          slug,
+          icon: input.icon ?? null,
+          description: input.description ?? null,
+          sortOrder: existing.sortOrder ?? 0,
+          isActive: input.active ?? true,
+          deletedAt: null,
+        })
+        .where(eq(schema.categories.id, existing.id));
+
+      return this.findOne(existing.id);
+    }
+
+    const id = randomUUID();
 
     await this.db.insert(schema.categories).values({
       id,

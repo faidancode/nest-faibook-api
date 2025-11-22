@@ -11,6 +11,7 @@ describe('BooksController', () => {
       findAll: jest.fn(),
       findOne: jest.fn(),
       getReviewsBySlug: jest.fn(),
+      getReviewsByBookId: jest.fn(),
       checkReviewEligibility: jest.fn(),
       create: jest.fn(),
       createReview: jest.fn(),
@@ -115,6 +116,31 @@ describe('BooksController', () => {
     expect(reviews).toBe(payload);
   });
 
+  it('parses admin review query parameters by book id before delegating to service', async () => {
+    const payload = {
+      data: { book: { id: 'book-1', title: 'Book A' }, reviews: [], ratingCounts: {} },
+      meta: { page: 1, pageSize: 5, total: 0, totalPages: 0 },
+      ok: true,
+      error: {},
+    };
+    service.getReviewsByBookId.mockResolvedValue(payload as any);
+
+    const reviews = await controller.getReviewsByBookId('book-1', {
+      sort: 'oldest',
+      rating: '3',
+      limit: '5',
+      page: '1',
+    });
+
+    expect(service.getReviewsByBookId).toHaveBeenCalledWith('book-1', {
+      sort: 'oldest',
+      rating: 3,
+      page: 1,
+      pageSize: 5,
+    });
+    expect(reviews).toBe(payload);
+  });
+
   it('returns eligibility payload with user from token when available', async () => {
     const payload = { eligible: true, reason: 'ELIGIBLE' };
     service.checkReviewEligibility.mockResolvedValue(payload as any);
@@ -198,6 +224,11 @@ describe('BooksController', () => {
     const result = await controller.remove('book-1');
 
     expect(service.remove).toHaveBeenCalledWith('book-1');
-    expect(result).toBeNull();
+    expect(result).toEqual({
+      ok: true,
+      data: null,
+      meta: null,
+      error: null,
+    });
   });
 });
