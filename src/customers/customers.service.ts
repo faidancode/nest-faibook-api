@@ -1,0 +1,120 @@
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { and, asc, eq, like, or, sql } from 'drizzle-orm';
+import type { MySql2Database } from 'drizzle-orm/mysql2';
+import * as schema from '../infra/drizzle/schema';
+import type { ListCustomersQuery } from './customers.schemas';
+import { OrdersService } from '../orders/orders.service';
+
+type Db = MySql2Database<typeof schema>;
+
+type CustomerRow = {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  role: string;
+  createdAt: Date;
+};
+
+@Injectable()
+export class CustomersService {
+  constructor(
+    @Inject('DRIZZLE') private readonly db: Db,
+    private readonly ordersService: OrdersService,
+  ) {}
+
+  private buildWhere(q?: string) {
+    let where: any = and(
+      eq(schema.users.role, 'CUSTOMER'),
+      sql`${schema.users.deletedAt} IS NULL`,
+    );
+
+    if (q?.trim()) {
+      const term = `%${q.trim()}%`;
+      where = and(
+        where,
+        or(
+          like(schema.users.name, term),
+          like(schema.users.email, term),
+          like(schema.users.phone, term),
+        ),
+      );
+    }
+
+    return where;
+  }
+
+  async listCustomers(query: ListCustomersQuery): Promise<{
+    items: CustomerRow[];
+    meta: { page: number; pageSize: number; total: number; totalPages: number };
+  }> {
+    const where = this.buildWhere(query.q);
+    const offset = (query.page - 1) * query.pageSize;
+
+    const [rows, [{ total }]] = await Promise.all([
+      this.db
+        .select({
+          id: schema.users.id,
+          name: schema.users.name,
+          email: schema.users.email,
+          phone: schema.users.phone,
+          role: schema.users.role,
+          createdAt: schema.users.createdAt,
+        })
+        .from(schema.users)
+        .where(where)
+        .orderBy(asc(schema.users.name))
+        .limit(query.pageSize)
+        .offset(offset),
+      this.db
+        .select({ total: sql<number>`COUNT(*)` })
+        .from(schema.users)
+        .where(where),
+    ]);
+
+    return {
+      items: rows as CustomerRow[],
+      meta: {
+        page: query.page,
+        pageSize: query.pageSize,
+        total,
+        totalPages: Math.ceil(total / query.pageSize),
+      },
+    };
+  }
+
+  async getCustomerWithOrders(customerId: string): Promise<{
+    customer: CustomerRow;
+    orders: Awaited<ReturnType<OrdersService['getOrdersByUserId']>>;
+  }> {
+    const [customer] = await this.db
+      .select({
+        id: schema.users.id,
+        name: schema.users.name,
+        email: schema.users.email,
+        phone: schema.users.phone,
+        role: schema.users.role,
+        createdAt: schema.users.createdAt,
+      })
+      .from(schema.users)
+      .where(
+        and(
+          eq(schema.users.id, customerId),
+          eq(schema.users.role, 'CUSTOMER'),
+          sql`${schema.users.deletedAt} IS NULL`,
+        ),
+      )
+      .limit(1);
+
+    if (!customer) {
+      throw new NotFoundException('Customer not found');
+    }
+
+    const orders = await this.ordersService.getOrdersByUserId(customerId);
+
+    return {
+      customer: customer as CustomerRow,
+      orders,
+    };
+  }
+}
