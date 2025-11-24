@@ -19,6 +19,7 @@ import { CartModule } from './carts/carts.module';
 import { OrdersModule } from './orders/orders.module';
 import { MidtransModule } from './midtrans/midtrans.module';
 import { CustomersModule } from './customers/customers.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -38,7 +39,8 @@ import { CustomersModule } from './customers/customers.module';
     CartModule,
     OrdersModule,
     MidtransModule,
-    CustomersModule
+    CustomersModule,
+    DashboardModule,
   ],
   providers: [
     RateLimitService,
