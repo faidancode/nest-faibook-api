@@ -47,6 +47,7 @@ type AdminOrderListItem = {
   userId: string;
   userName: string | null;
   userEmail: string | null;
+  userPhone: string | null;
   status: string;
   paymentStatus: string;
   paymentMethod: string;
@@ -129,7 +130,11 @@ export class OrdersService {
     };
   }
 
-  private mapOrder(row: OrderRow, items: OrderItemWithBook[]): OrderOutput {
+  private mapOrder(
+    row: OrderRow,
+    items: OrderItemWithBook[],
+    customer?: { email: string | null; phone: string | null },
+  ): OrderOutput {
     return {
       id: row.id,
       orderNumber: row.orderNumber ?? '',
@@ -165,6 +170,7 @@ export class OrdersService {
         createdAt: item.createdAt,
         updatedAt: item.updatedAt,
       })),
+      customer,
     };
   }
 
@@ -608,7 +614,19 @@ export class OrdersService {
       .leftJoin(schema.authors, eq(schema.books.authorId, schema.authors.id))
       .where(eq(schema.orderItems.orderId, orderId));
 
-    return this.mapOrder(order, items);
+    const [customer] = await this.db
+      .select({
+        email: schema.users.email,
+        phone: schema.users.phone,
+      })
+      .from(schema.users)
+      .where(eq(schema.users.id, order.userId))
+      .limit(1);
+
+    return this.mapOrder(order, items, {
+      email: customer?.email ?? null,
+      phone: customer?.phone ?? null,
+    });
   }
 
   async getAllOrders(query: ListOrdersQuery): Promise<{
@@ -667,11 +685,13 @@ export class OrdersService {
           userId: schema.orders.userId,
           userName: schema.users.name,
           userEmail: schema.users.email,
+          userPhone: schema.users.phone,
           status: schema.orders.status,
           paymentStatus: schema.orders.paymentStatus,
           paymentMethod: schema.orders.paymentMethod,
           totalCents: schema.orders.totalCents,
           placedAt: schema.orders.placedAt,
+          createdAt: schema.orders.createdAt,
           paidAt: schema.orders.paidAt,
           receiptNo: schema.orders.receiptNo,
           itemsCount: sql<number>`COUNT(${schema.orderItems.id})`,

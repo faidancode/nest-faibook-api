@@ -61,6 +61,12 @@ export const OrderSchema = z.object({
   updatedAt: z.coerce.date().nullable(),
   deletedAt: z.coerce.date().nullable(),
   items: z.array(OrderItemSchema),
+  customer: z
+    .object({
+      email: z.string().email().nullable(),
+      phone: z.string().nullable(),
+    })
+    .optional(),
 });
 
 export const ListOrdersQuerySchema = z.object({
