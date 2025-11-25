@@ -180,4 +180,24 @@ export class AuthService {
   async verifyAndIssueAccessByRefreshToken(refreshToken: string) {
     return this.refreshAccessToken(refreshToken);
   }
+
+  async getMe(userId: string) {
+    const user = await this.db.query.users.findFirst({
+      where: eq(schema.users.id, userId),
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    return {
+      userId: user.id,
+      role: user.role as Role,
+      user: {
+        name: user.name,
+        email: user.email,
+        ...(user.phone ? { phone: user.phone } : {}),
+      },
+    };
+  }
 }

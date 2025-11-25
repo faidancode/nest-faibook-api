@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   Headers,
   HttpCode,
   HttpStatus,
@@ -18,16 +19,30 @@ import {
   type RefreshMobileInput,
   RegisterSchema,
   type RegisterInput,
+  type JwtPayload,
 } from './auth.schemas';
 import { ok, fail } from '../common/http/response';
 import { JwtAuthGuard } from './jwt.guard';
 
 type ClientType = 'web' | 'mobile';
 
-function resolveClientType(headerValue?: string): ClientType {
-  if (!headerValue) return 'web';
-  const v = headerValue.toLowerCase();
-  return v === 'mobile' ? 'mobile' : 'web';
+function resolveClientType(
+  clientHeader?: string,
+  userAgentHeader?: string,
+): ClientType {
+  const header = clientHeader?.toLowerCase();
+  if (header === 'mobile') return 'mobile';
+
+  const ua = userAgentHeader?.toLowerCase() ?? '';
+  const looksLikeMobileApp =
+    ua.includes('expo') ||
+    ua.includes('reactnative') ||
+    ua.includes('react-native') ||
+    ua.includes('okhttp');
+
+  if (looksLikeMobileApp) return 'mobile';
+
+  return 'web';
 }
 
 @Controller('v1/auth')
@@ -38,10 +53,11 @@ export class AuthController {
   @HttpCode(HttpStatus.CREATED)
   async register(
     @Headers('x-client-type') clientHeader: string | undefined,
+    @Headers('user-agent') userAgentHeader: string | undefined,
     @Body() body: unknown,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const clientType = resolveClientType(clientHeader);
+    const clientType = resolveClientType(clientHeader, userAgentHeader);
     const parsed: RegisterInput = RegisterSchema.parse(body);
 
     const { accessToken, refreshToken, role, userId, user } =
@@ -93,15 +109,16 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async login(
     @Headers('x-client-type') clientHeader: string | undefined,
+    @Headers('user-agent') userAgentHeader: string | undefined,
     @Body() body: unknown,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const clientType = resolveClientType(clientHeader);
+    const clientType = resolveClientType(clientHeader, userAgentHeader);
     const parsed: LoginInput = LoginSchema.parse(body);
-    
+
     const { accessToken, refreshToken, role, userId, user } =
       await this.authService.login(parsed);
-
+    console.log({clientType});
     if (clientType === 'web') {
       const isProd = process.env.NODE_ENV === 'production';
 
@@ -150,11 +167,12 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async refresh(
     @Headers('x-client-type') clientHeader: string | undefined,
+    @Headers('user-agent') userAgentHeader: string | undefined,
     @Req() req: Request,
     @Body() body: unknown,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const clientType = resolveClientType(clientHeader);
+    const clientType = resolveClientType(clientHeader, userAgentHeader);
 
     if (clientType === 'web') {
       // Web: ambil refreshToken dari cookie
@@ -220,9 +238,10 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async logout(
     @Headers('x-client-type') clientHeader: string | undefined,
+    @Headers('user-agent') userAgentHeader: string | undefined,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const clientType = resolveClientType(clientHeader);
+    const clientType = resolveClientType(clientHeader, userAgentHeader);
 
     if (clientType === 'web') {
       // Hapus cookie
@@ -232,5 +251,12 @@ export class AuthController {
 
     // Mobile: client hapus token secara lokal
     return ok({ loggedOut: true });
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  async me(@Req() req: Request & { user: JwtPayload }) {
+    const result = await this.authService.getMe(req.user.sub);
+    return ok(result);
   }
 }

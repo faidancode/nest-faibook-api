@@ -400,7 +400,7 @@ export class BooksService {
 
   async findBySlug(slug: string): Promise<BookWithAuthorName> {
     const book = await this.fetchBookBySlug(slug);
-    const reviews = await this.fetchBookReviews(book.id);
+    const reviews = await this.fetchBookReviews(book.id, 5);
     const averageRating = this.calculateAverageRating(reviews);
     const totalReviews = reviews.length;
 
@@ -753,8 +753,11 @@ export class BooksService {
     return { counts, totalReviews, averageRating };
   }
 
-  private async fetchBookReviews(bookId: string): Promise<ReviewWithUser[]> {
-    const reviews = await this.db
+  private async fetchBookReviews(
+    bookId: string,
+    limit?: number,
+  ): Promise<ReviewWithUser[]> {
+    const baseQuery = this.db
       .select({
         id: schema.reviews.id,
         userId: schema.reviews.userId,
@@ -771,6 +774,10 @@ export class BooksService {
       .leftJoin(schema.users, eq(schema.reviews.userId, schema.users.id))
       .where(eq(schema.reviews.bookId, bookId))
       .orderBy(desc(schema.reviews.createdAt));
+
+    const reviews = await (typeof limit === 'number'
+      ? baseQuery.limit(limit)
+      : baseQuery);
 
     return reviews as ReviewWithUser[];
   }

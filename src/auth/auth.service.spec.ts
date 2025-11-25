@@ -206,4 +206,37 @@ describe('AuthService', () => {
       refreshToken: 'new-refresh-token',
     });
   });
+
+  it('returns user profile for getMe', async () => {
+    db.query.users.findFirst.mockResolvedValueOnce({
+      id: 'user-1',
+      name: 'John Doe',
+      email: 'john@example.com',
+      phone: '0800000',
+      role: 'CUSTOMER',
+    });
+
+    const result = await service.getMe('user-1');
+
+    expect(db.query.users.findFirst).toHaveBeenCalledWith({
+      where: expect.anything(),
+    });
+    expect(result).toEqual({
+      userId: 'user-1',
+      role: 'CUSTOMER',
+      user: {
+        name: 'John Doe',
+        email: 'john@example.com',
+        phone: '0800000',
+      },
+    });
+  });
+
+  it('throws unauthorized when user is missing in getMe', async () => {
+    db.query.users.findFirst.mockResolvedValueOnce(undefined);
+
+    await expect(service.getMe('missing')).rejects.toThrow(
+      UnauthorizedException,
+    );
+  });
 });

@@ -12,6 +12,7 @@ describe('AuthController', () => {
       register: jest.fn(),
       login: jest.fn(),
       verifyAndIssueAccessByRefreshToken: jest.fn(),
+      getMe: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -167,6 +168,44 @@ describe('AuthController', () => {
         },
         accessToken: 'new-access',
         refreshToken: 'next-refresh',
+      },
+      meta: null,
+      error: null,
+    });
+  });
+
+  it('returns current user profile via /me', async () => {
+    service.getMe.mockResolvedValue({
+      userId: 'user-123',
+      role: 'CUSTOMER',
+      user: {
+        name: 'John',
+        email: 'john@example.com',
+        phone: '08123',
+      },
+    });
+
+    const req = {
+      user: {
+        sub: 'user-123',
+        email: 'john@example.com',
+        role: 'CUSTOMER',
+      },
+    } as unknown as Request;
+
+    const result = await controller.me(req);
+
+    expect(service.getMe).toHaveBeenCalledWith('user-123');
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        userId: 'user-123',
+        role: 'CUSTOMER',
+        user: {
+          name: 'John',
+          email: 'john@example.com',
+          phone: '08123',
+        },
       },
       meta: null,
       error: null,
