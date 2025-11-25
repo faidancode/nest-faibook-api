@@ -63,7 +63,7 @@ export const OrderSchema = z.object({
   items: z.array(OrderItemSchema),
   customer: z
     .object({
-      email: z.string().email().nullable(),
+      email: z.email().nullable(),
       phone: z.string().nullable(),
     })
     .optional(),

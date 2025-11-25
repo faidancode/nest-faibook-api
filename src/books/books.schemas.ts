@@ -55,8 +55,8 @@ export const ListBooksQuerySchema = z
         const trimmed = value?.trim();
         return trimmed ? trimmed : undefined;
       }),
-    categoryId: z.string().uuid().optional(),
-    authorId: z.string().uuid().optional(),
+    categoryId: z.uuid().optional(),
+    authorId: z.uuid().optional(),
     minPrice: priceFilterSchema,
     maxPrice: priceFilterSchema,
     active: z
@@ -168,8 +168,8 @@ export type CreateReviewInput = z.infer<typeof CreateReviewSchema>;
 export const CreateBookSchema = z.object({
   title: z.string().min(1).max(200),
   slug: z.string().min(1).max(200).optional(),
-  categoryId: z.string().uuid(),
-  authorId: z.string().uuid().optional(),
+  categoryId: z.uuid(),
+  authorId: z.uuid().optional(),
   isbn: z.string().max(32).optional(),
   priceCents: z.coerce.number().int().min(0),
   discountPriceCents: z.coerce.number().int().min(0).optional(),
