@@ -25,11 +25,26 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       ]),
       ignoreExpiration: false,
       secretOrKey: jwtCfg.accessSecret,
+      passReqToCallback: true,
     });
   }
 
-  async validate(payload: JwtPayload) {
-    // payload -> req.user
+  private logClientSource(req: Request) {
+    const ua = (req.headers['user-agent'] as string | undefined) ?? '';
+    const xClient = (req.headers['x-client'] as string | undefined) ?? 'unset';
+    const uaGuess = ua.toLowerCase().includes('okhttp')
+      ? 'react-native (ua guess)'
+      : 'web/next (ua guess)';
+
+    console.log('Incoming auth request:', {
+      clientHeader: xClient,
+      uaGuess,
+      ua,
+    });
+  }
+
+  async validate(req: Request, payload: JwtPayload) {
+    this.logClientSource(req);
     return payload;
   }
 }

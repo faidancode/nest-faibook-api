@@ -93,7 +93,10 @@ describe('CustomersService', () => {
       role: 'CUSTOMER',
       createdAt: new Date(),
     };
-    const orders = [{ id: 'order-1' }];
+    const orders = {
+      items: [{ id: 'order-1' }],
+      meta: { page: 1, pageSize: 10, total: 1, totalPages: 1 },
+    };
 
     db.select.mockReturnValueOnce(createDetailBuilder([customer]));
     ordersService.getOrdersByUserId.mockResolvedValueOnce(orders as any);

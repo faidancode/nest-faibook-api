@@ -52,6 +52,10 @@ describe('OrdersController', () => {
   const addressId = '22222222-2222-4222-8222-222222222222';
   const adminId = '33333333-3333-4333-8333-333333333333';
   const otherUserId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const emptyPaged = {
+    items: [],
+    meta: { page: 1, pageSize: 10, total: 0, totalPages: 0 },
+  };
 
   it('passes validated checkout payload and headers to service', async () => {
     const req = createRequest(userId, 'CUSTOMER');
@@ -81,7 +85,7 @@ describe('OrdersController', () => {
 
   it('throws forbidden when user tries to access other account orders', async () => {
     const req = createRequest(userId, 'CUSTOMER');
-    await expect(controller.getByUser(otherUserId, req)).rejects.toThrow(
+    await expect(controller.getByUser(otherUserId, req, {})).rejects.toThrow(
       ForbiddenException,
     );
     expect(service.getOrdersByUserId).not.toHaveBeenCalled();
@@ -89,11 +93,39 @@ describe('OrdersController', () => {
 
   it('allows admin to fetch another user orders', async () => {
     const req = createRequest(adminId, 'ADMIN');
-    service.getOrdersByUserId.mockResolvedValue([]);
+    service.getOrdersByUserId.mockResolvedValue(emptyPaged);
 
-    await controller.getByUser(otherUserId, req);
+    await controller.getByUser(otherUserId, req, {});
 
-    expect(service.getOrdersByUserId).toHaveBeenCalledWith(otherUserId);
+    expect(service.getOrdersByUserId).toHaveBeenCalledWith(
+      otherUserId,
+      undefined,
+      { page: 1, pageSize: 10 },
+    );
+  });
+
+  it('forwards status filter when provided', async () => {
+    const req = createRequest(userId, 'CUSTOMER');
+    service.getOrdersByUserId.mockResolvedValue(emptyPaged);
+
+    await controller.getByUser(userId, req, {
+      status: 'PAID',
+      page: '2',
+      pageSize: '5',
+    });
+
+    expect(service.getOrdersByUserId).toHaveBeenCalledWith(
+      userId,
+      'PAID',
+      { page: 2, pageSize: 5 },
+    );
+  });
+
+  it('rejects invalid status filter', async () => {
+    const req = createRequest(userId, 'CUSTOMER');
+    await expect(
+      controller.getByUser(userId, req, { status: 'INVALID' }),
+    ).rejects.toThrow(ZodError);
   });
 
   it('scopes detail retrieval for customers but not admins', async () => {

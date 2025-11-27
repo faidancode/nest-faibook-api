@@ -9,6 +9,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -17,6 +18,7 @@ import { OrdersService } from './orders.service';
 import {
   CheckoutOrderSchema,
   CustomerUpdateStatusSchema,
+  UserListOrdersQuerySchema,
 } from './schemas/orders.schemas';
 import { JwtAuthGuard } from '../auth/jwt.guard';
 import type { JwtPayload } from '../auth/auth.schemas';
@@ -40,10 +42,15 @@ export class OrdersController {
   async getByUser(
     @Param('userId') userId: string,
     @Req() req: Request,
+    @Query() query: unknown,
   ) {
+    const parsedQuery = UserListOrdersQuerySchema.parse(query);
     const currentUser = req.user as JwtPayload;
     this.assertUserAccess(currentUser, userId);
-    return this.ordersService.getOrdersByUserId(userId);
+    return this.ordersService.getOrdersByUserId(userId, parsedQuery.status, {
+      page: parsedQuery.page,
+      pageSize: parsedQuery.pageSize,
+    });
   }
 
   @UseGuards(JwtAuthGuard)

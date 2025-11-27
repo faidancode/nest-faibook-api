@@ -85,6 +85,20 @@ export const ListOrdersQuerySchema = z.object({
   paymentStatus: PaymentStatusEnum.optional(),
 });
 
+export const UserListOrdersQuerySchema = z.object({
+  page: z
+    .string()
+    .optional()
+    .transform((v) => (v ? parseInt(v, 10) : 1))
+    .pipe(z.number().int().min(1)),
+  pageSize: z
+    .string()
+    .optional()
+    .transform((v) => (v ? parseInt(v, 10) : 10))
+    .pipe(z.number().int().min(1).max(100)),
+  status: OrderStatusEnum.optional(),
+});
+
 export const AdminListOrdersQuerySchema = z.object({
   page: z
     .string()
@@ -133,6 +147,7 @@ export type OrderItemOutput = z.infer<typeof OrderItemSchema>;
 export type OrderOutput = z.infer<typeof OrderSchema>;
 export type ListOrdersQuery = z.infer<typeof ListOrdersQuerySchema>;
 export type AdminListOrdersQuery = z.infer<typeof AdminListOrdersQuerySchema>;
+export type UserListOrdersQuery = z.infer<typeof UserListOrdersQuerySchema>;
 export type CheckoutOrderInput = z.infer<typeof CheckoutOrderSchema>;
 export type CustomerUpdateStatusInput = z.infer<
   typeof CustomerUpdateStatusSchema

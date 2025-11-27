@@ -567,26 +567,59 @@ export class OrdersService {
     return { order, payment: paymentPayload };
   }
 
-  async getOrdersByUserId(userId: string): Promise<OrderOutput[]> {
-    const rows = await this.db
-      .select()
-      .from(schema.orders)
-      .where(
-        and(
-          eq(schema.orders.userId, userId),
-          sql`${schema.orders.deletedAt} IS NULL`,
-        ),
-      )
-      .orderBy(desc(schema.orders.placedAt));
+  async getOrdersByUserId(
+    userId: string,
+    status?: OrderStatus,
+    options?: { page?: number; pageSize?: number },
+  ): Promise<{
+    items: OrderOutput[];
+    meta: { page: number; pageSize: number; total: number; totalPages: number };
+  }> {
+    const page = options?.page ?? 1;
+    const pageSize = options?.pageSize ?? 10;
+    const offset = (page - 1) * pageSize;
+
+    let where = and(
+      eq(schema.orders.userId, userId),
+      sql`${schema.orders.deletedAt} IS NULL`,
+    );
+
+    if (status) {
+      where = and(where, eq(schema.orders.status, status));
+    }
+
+    const [rows, [{ total }]] = await Promise.all([
+      this.db
+        .select()
+        .from(schema.orders)
+        .where(where)
+        .orderBy(desc(schema.orders.placedAt))
+        .limit(pageSize)
+        .offset(offset),
+      this.db
+        .select({ total: sql<number>`COUNT(*)` })
+        .from(schema.orders)
+        .where(where),
+    ]);
 
     const itemsByOrder = await this.getOrderItemsMap(
       this.db,
       rows.map((row) => row.id),
     );
 
-    return rows.map((row) =>
+    const items = rows.map((row) =>
       this.mapOrder(row, itemsByOrder.get(row.id) ?? []),
     );
+
+    return {
+      items,
+      meta: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+      },
+    };
   }
 
   async getOrderDetails(

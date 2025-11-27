@@ -4,6 +4,7 @@ import { OrdersService } from './orders.service';
 import { ORDERS_PAYMENT } from './orders.payment';
 import type { OrderOutput } from './schemas/orders.schemas';
 import { MidtransService } from '../midtrans/midtrans.service';
+import * as schema from '../infra/drizzle/schema';
 
 type TxMock = {
   select: jest.Mock;
@@ -706,6 +707,42 @@ describe('OrdersService', () => {
       service.updatePaymentStatus('order-1', { paymentStatus: 'PAID' }),
     ).rejects.toThrow('Cannot transition payment from REFUNDED to PAID');
     expect(db.update).not.toHaveBeenCalled();
+  });
+
+  it('filters orders by status for user scoped listing', async () => {
+    const orderRow = buildOrder({ id: 'order-filter', status: 'PAID' });
+    const offset = jest.fn().mockResolvedValue([orderRow as any]);
+    const limit = jest.fn().mockReturnValue({ offset });
+    const orderBy = jest.fn().mockReturnValue({ limit });
+    const where = jest.fn().mockReturnValue({ orderBy });
+    const from = jest.fn().mockReturnValue({ where });
+
+    const countWhere = jest.fn().mockResolvedValue([{ total: 1 }]);
+    const countFrom = jest.fn().mockReturnValue({ where: countWhere });
+
+    db.select
+      .mockReturnValueOnce({ from })
+      .mockReturnValueOnce({ from: countFrom });
+
+    const itemsMapSpy = jest
+      .spyOn(service as any, 'getOrderItemsMap')
+      .mockResolvedValue(new Map([[orderRow.id, []]]));
+
+    const result = await service.getOrdersByUserId(orderRow.userId, 'PAID');
+
+    expect(where).toHaveBeenCalledWith(expect.anything());
+    expect(orderBy).toHaveBeenCalled();
+    expect(limit).toHaveBeenCalledWith(10);
+    expect(offset).toHaveBeenCalledWith(0);
+    expect(countWhere).toHaveBeenCalledWith(expect.anything());
+    expect(result).toEqual({
+      items: [
+        expect.objectContaining({ id: orderRow.id, status: 'PAID' }),
+      ],
+      meta: { page: 1, pageSize: 10, total: 1, totalPages: 1 },
+    });
+
+    itemsMapSpy.mockRestore();
   });
 
   it('returns lightweight admin list with pagination metadata', async () => {
