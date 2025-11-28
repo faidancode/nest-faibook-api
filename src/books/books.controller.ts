@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  ForbiddenException,
   HttpCode,
   HttpStatus,
   Param,
@@ -49,6 +50,22 @@ export class BooksController {
   async getReviewsBySlug(@Param('slug') slug: string, @Query() query: unknown) {
     const parsed = ListBookReviewsQuerySchema.parse(query);
     return this.booksService.getReviewsBySlug(slug, parsed);
+  }
+
+  @Get('user/:userId/reviews')
+  @UseGuards(JwtAuthGuard)
+  async getReviewsByUserId(
+    @Param('userId') userId: string,
+    @Query() query: unknown,
+    @Req() req: Request,
+  ) {
+    const parsed = ListBookReviewsQuerySchema.parse(query);
+    const currentUser = req.user as JwtPayload;
+    if (currentUser.role !== 'ADMIN' && currentUser.sub !== userId) {
+      throw new ForbiddenException('Cannot access other user reviews');
+    }
+
+    return this.booksService.getReviewsByUserId(userId, parsed);
   }
 
   @Get(':slug/reviews/eligibility')

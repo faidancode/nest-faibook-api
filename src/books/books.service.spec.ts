@@ -429,6 +429,98 @@ describe('BooksService', () => {
     });
   });
 
+  it('throws when user reviews are missing', async () => {
+    db.select.mockReturnValueOnce(createFindOneBuilder([]));
+
+    await expect(
+      service.getReviewsByUserId('missing', {
+        sort: 'newest',
+        rating: undefined,
+        page: 1,
+        pageSize: 10,
+      }),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('returns reviews with stats and rating counts by user id', async () => {
+    const userRow = { id: 'user-1', name: 'User One', email: 'user@example.com' };
+    const ratingGroups = [
+      { rating: 5, count: 2 },
+      { rating: 3, count: 1 },
+    ];
+    const reviews = [
+      {
+        id: 'review-1',
+        userId: 'user-1',
+        bookId: 'book-1',
+        rating: 5,
+        title: 'Excellent',
+        body: 'Loved it',
+        createdAt: new Date('2025-01-01'),
+        updatedAt: new Date('2025-01-01'),
+        deletedAt: null,
+        bookTitle: 'Book A',
+        bookSlug: 'book-a',
+        bookCoverUrl: 'https://example.com/book-a.jpg',
+      },
+      {
+        id: 'review-2',
+        userId: 'user-1',
+        bookId: 'book-2',
+        rating: 5,
+        title: 'Also great',
+        body: 'Recommending',
+        createdAt: new Date('2025-01-02'),
+        updatedAt: new Date('2025-01-02'),
+        deletedAt: null,
+        bookTitle: 'Book B',
+        bookSlug: 'book-b',
+        bookCoverUrl: 'https://example.com/book-b.jpg',
+      },
+    ];
+
+    db.select
+      .mockReturnValueOnce(createFindOneBuilder([userRow]))
+      .mockReturnValueOnce(createRatingCountBuilder(ratingGroups))
+      .mockReturnValueOnce(createReviewsSelectBuilder(reviews))
+      .mockReturnValueOnce(createCountBuilder(reviews.length));
+
+    const result = await service.getReviewsByUserId('user-1', {
+      sort: 'highest',
+      rating: 5,
+      page: 1,
+      pageSize: 10,
+    });
+
+    expect(result).toEqual({
+      data: {
+        user: {
+          id: 'user-1',
+          name: 'User One',
+          email: 'user@example.com',
+          averageRating: 4.33,
+          totalReviews: 3,
+        },
+        reviews,
+        ratingCounts: {
+          1: 0,
+          2: 0,
+          3: 1,
+          4: 0,
+          5: 2,
+        },
+      },
+      meta: {
+        page: 1,
+        pageSize: 10,
+        total: 2,
+        totalPages: 1,
+      },
+      error: {},
+      ok: true,
+    });
+  });
+
   it('returns not eligible when user is not authenticated', async () => {
     const bookRow = { id: 'book-1', title: 'Book A', authorName: 'Author Name' };
     db.select.mockReturnValueOnce(createFindOneBuilder([bookRow]));

@@ -20,6 +20,7 @@ import { randomUUID } from 'crypto';
 
 type Db = MySql2Database<typeof schema>;
 type BookRow = typeof schema.books.$inferSelect;
+type UserRow = typeof schema.users.$inferSelect;
 type ReviewRow = typeof schema.reviews.$inferSelect;
 type BookWithAuthorName = BookRow & {
   authorName: string | null;
@@ -30,6 +31,11 @@ type BookWithAuthorName = BookRow & {
 };
 type ReviewWithUser = ReviewRow & {
   userName: string | null;
+};
+type ReviewWithBook = ReviewRow & {
+  bookTitle: string | null;
+  bookSlug: string | null;
+  bookCoverUrl: string | null;
 };
 
 type RatingAggregationRow = {
@@ -670,6 +676,122 @@ export class BooksService {
           totalReviews,
         },
         reviews: reviews as ReviewWithUser[],
+        ratingCounts,
+      },
+      meta: {
+        page: query.page,
+        pageSize: query.pageSize,
+        total,
+        totalPages,
+      },
+      error: {},
+      ok: true,
+    };
+  }
+
+  private async fetchUserById(id: string): Promise<UserRow> {
+    const [row] = await this.db
+      .select()
+      .from(schema.users)
+      .where(and(eq(schema.users.id, id), sql`${schema.users.deletedAt} IS NULL`))
+      .limit(1);
+
+    if (!row) {
+      throw new NotFoundException('User not found');
+    }
+
+    return row;
+  }
+
+  async getReviewsByUserId(
+    userId: string,
+    query: ListBookReviewsQuery,
+  ): Promise<{
+    data: {
+      user: {
+        id: string;
+        name: string | null;
+        email: string | null;
+        averageRating: number;
+        totalReviews: number;
+      };
+      reviews: ReviewWithBook[];
+      ratingCounts: RatingCounts;
+    };
+    meta: {
+      page: number;
+      pageSize: number;
+      total: number;
+      totalPages: number;
+    };
+    error: Record<string, never>;
+    ok: true;
+  }> {
+    const user = await this.fetchUserById(userId);
+    const baseFilter = and(
+      eq(schema.reviews.userId, user.id),
+      sql`${schema.reviews.deletedAt} IS NULL`,
+    );
+
+    const ratingGroups = await this.db
+      .select({
+        rating: schema.reviews.rating,
+        count: sql<number>`COUNT(*)`,
+      })
+      .from(schema.reviews)
+      .where(baseFilter)
+      .groupBy(schema.reviews.rating);
+
+    const { counts: ratingCounts, averageRating, totalReviews } =
+      this.summarizeRatingCounts(ratingGroups);
+
+    let reviewFilter = baseFilter;
+    if (typeof query.rating === 'number') {
+      reviewFilter = and(reviewFilter, eq(schema.reviews.rating, query.rating));
+    }
+
+    const offset = (query.page - 1) * query.pageSize;
+
+    const [reviews, [{ total }]] = await Promise.all([
+      this.db
+        .select({
+          id: schema.reviews.id,
+          userId: schema.reviews.userId,
+          bookId: schema.reviews.bookId,
+          rating: schema.reviews.rating,
+          title: schema.reviews.title,
+          body: schema.reviews.body,
+          createdAt: schema.reviews.createdAt,
+          updatedAt: schema.reviews.updatedAt,
+          deletedAt: schema.reviews.deletedAt,
+          bookTitle: schema.books.title,
+          bookSlug: schema.books.slug,
+          bookCoverUrl: schema.books.coverUrl,
+        })
+        .from(schema.reviews)
+        .leftJoin(schema.books, eq(schema.reviews.bookId, schema.books.id))
+        .where(reviewFilter)
+        .orderBy(this.buildReviewOrder(query.sort ?? 'newest'))
+        .limit(query.pageSize)
+        .offset(offset),
+      this.db
+        .select({ total: sql<number>`COUNT(*)` })
+        .from(schema.reviews)
+        .where(reviewFilter),
+    ]);
+
+    const totalPages = Math.ceil(total / query.pageSize);
+
+    return {
+      data: {
+        user: {
+          id: user.id,
+          name: user.name ?? null,
+          email: user.email ?? null,
+          averageRating,
+          totalReviews,
+        },
+        reviews: reviews as ReviewWithBook[],
         ratingCounts,
       },
       meta: {

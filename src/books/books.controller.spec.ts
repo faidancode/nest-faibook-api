@@ -12,6 +12,7 @@ describe('BooksController', () => {
       findOne: jest.fn(),
       getReviewsBySlug: jest.fn(),
       getReviewsByBookId: jest.fn(),
+      getReviewsByUserId: jest.fn(),
       checkReviewEligibility: jest.fn(),
       create: jest.fn(),
       createReview: jest.fn(),
@@ -135,6 +136,39 @@ describe('BooksController', () => {
     expect(service.getReviewsByBookId).toHaveBeenCalledWith('book-1', {
       sort: 'oldest',
       rating: 3,
+      page: 1,
+      pageSize: 5,
+    });
+    expect(reviews).toBe(payload);
+  });
+
+  it('parses user review query parameters and enforces identity before delegating to service', async () => {
+    const payload = {
+      data: {
+        user: { id: 'user-1', name: 'User One', email: 'user@example.com', averageRating: 4.5, totalReviews: 2 },
+        reviews: [],
+        ratingCounts: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 2 },
+      },
+      meta: { page: 1, pageSize: 5, total: 0, totalPages: 0 },
+      ok: true,
+      error: {},
+    };
+    service.getReviewsByUserId.mockResolvedValue(payload as any);
+
+    const reviews = await controller.getReviewsByUserId(
+      'user-1',
+      {
+        sort: 'oldest',
+        rating: '5',
+        limit: '5',
+        page: '1',
+      },
+      { user: { sub: 'user-1', role: 'CUSTOMER' } } as any,
+    );
+
+    expect(service.getReviewsByUserId).toHaveBeenCalledWith('user-1', {
+      sort: 'oldest',
+      rating: 5,
       page: 1,
       pageSize: 5,
     });
