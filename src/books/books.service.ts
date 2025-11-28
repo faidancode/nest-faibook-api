@@ -251,30 +251,7 @@ export class BooksService {
 
   async findAll(query: ListBooksQuery) {
     const { page, pageSize, sort } = query;
-    const [sortField, sortDirRaw] = sort.split(':');
-    const sortDir = sortDirRaw?.toLowerCase() === 'desc' ? 'desc' : 'asc';
-
-    let orderBy;
-    switch (sortField) {
-      case 'createdAt':
-        orderBy =
-          sortDir === 'desc'
-            ? desc(schema.books.createdAt)
-            : asc(schema.books.createdAt);
-        break;
-      case 'priceCents':
-        orderBy =
-          sortDir === 'desc'
-            ? desc(schema.books.priceCents)
-            : asc(schema.books.priceCents);
-        break;
-      default:
-        orderBy =
-          sortDir === 'desc'
-            ? desc(schema.books.title)
-            : asc(schema.books.title);
-        break;
-    }
+    const orderBy = this.buildBookOrder(sort);
 
     const categorySlug = query.category?.trim();
     let resolvedCategoryId = query.categoryId;
@@ -329,7 +306,7 @@ export class BooksService {
           eq(schema.books.authorId, schema.authors.id),
         )
         .where(where)
-        .orderBy(orderBy)
+        .orderBy(...orderBy)
         .limit(pageSize)
         .offset(offset),
       this.db
@@ -829,6 +806,48 @@ export class BooksService {
     });
 
     return this.findOne(id);
+  }
+
+  private buildBookOrder(sort: string) {
+    switch (sort) {
+      case 'newest':
+        return [desc(schema.books.createdAt)];
+      case 'highest':
+        return [desc(schema.books.priceCents)];
+      case 'lowest':
+        return [asc(schema.books.priceCents)];
+      case 'popular':
+        return [
+          desc(schema.books.ratingCount),
+          desc(schema.books.ratingAvg),
+          desc(schema.books.createdAt),
+        ];
+      default: {
+        const [sortField, sortDirRaw] = sort.split(':');
+        const sortDir = sortDirRaw?.toLowerCase() === 'desc' ? 'desc' : 'asc';
+
+        switch (sortField) {
+          case 'createdAt':
+            return [
+              sortDir === 'desc'
+                ? desc(schema.books.createdAt)
+                : asc(schema.books.createdAt),
+            ];
+          case 'priceCents':
+            return [
+              sortDir === 'desc'
+                ? desc(schema.books.priceCents)
+                : asc(schema.books.priceCents),
+            ];
+          default:
+            return [
+              sortDir === 'desc'
+                ? desc(schema.books.title)
+                : asc(schema.books.title),
+            ];
+        }
+      }
+    }
   }
 
   private buildReviewOrder(sort: ListBookReviewsQuery['sort']) {

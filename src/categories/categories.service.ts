@@ -40,22 +40,44 @@ export class CategoriesService {
   }
 
   private resolveBookSort(sort: string) {
-    const [sortField, sortDirRaw] = sort.split(":");
-    const sortDir = sortDirRaw?.toLowerCase() === "desc" ? "desc" : "asc";
+    switch (sort) {
+      case "newest":
+        return [desc(schema.books.createdAt)];
+      case "highest":
+        return [desc(schema.books.priceCents)];
+      case "lowest":
+        return [asc(schema.books.priceCents)];
+      case "popular":
+        return [
+          desc(schema.books.ratingCount),
+          desc(schema.books.ratingAvg),
+          desc(schema.books.createdAt),
+        ];
+      default: {
+        const [sortField, sortDirRaw] = sort.split(":");
+        const sortDir = sortDirRaw?.toLowerCase() === "desc" ? "desc" : "asc";
 
-    switch (sortField) {
-      case "createdAt":
-        return sortDir === "desc"
-          ? desc(schema.books.createdAt)
-          : asc(schema.books.createdAt);
-      case "priceCents":
-        return sortDir === "desc"
-          ? desc(schema.books.priceCents)
-          : asc(schema.books.priceCents);
-      default:
-        return sortDir === "desc"
-          ? desc(schema.books.title)
-          : asc(schema.books.title);
+        switch (sortField) {
+          case "createdAt":
+            return [
+              sortDir === "desc"
+                ? desc(schema.books.createdAt)
+                : asc(schema.books.createdAt),
+            ];
+          case "priceCents":
+            return [
+              sortDir === "desc"
+                ? desc(schema.books.priceCents)
+                : asc(schema.books.priceCents),
+            ];
+          default:
+            return [
+              sortDir === "desc"
+                ? desc(schema.books.title)
+                : asc(schema.books.title),
+            ];
+        }
+      }
     }
   }
 
@@ -244,7 +266,7 @@ export class CategoriesService {
         .select()
         .from(schema.books)
         .where(where)
-        .orderBy(orderBy)
+        .orderBy(...orderBy)
         .limit(query.pageSize)
         .offset(offset),
       this.db
