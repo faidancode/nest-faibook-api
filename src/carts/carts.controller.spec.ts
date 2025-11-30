@@ -13,6 +13,9 @@ describe('CartsController', () => {
       create: jest.fn(),
       update: jest.fn(),
       remove: jest.fn(),
+      updateItemQuantityForUser: jest.fn(),
+      removeItemForUser: jest.fn(),
+      decrementItemForUser: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -47,11 +50,14 @@ describe('CartsController', () => {
       ],
     };
 
-    const created = await controller.create(body);
+    const created = await controller.create(
+      { user: { sub: 'user-123' } } as any,
+      body,
+    );
 
     expect(service.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: '00000000-0000-0000-0000-000000000000',
+        userId: 'user-123',
         items: [
           expect.objectContaining({
             bookId: '11111111-1111-1111-8111-111111111111',
@@ -71,5 +77,54 @@ describe('CartsController', () => {
 
     expect(service.remove).toHaveBeenCalledWith('cart-1');
     expect(result).toBeNull();
+  });
+
+  it('updates item quantity using authenticated user', async () => {
+    service.updateItemQuantityForUser.mockResolvedValue({
+      id: 'cart-1',
+    } as any);
+
+    const result = await controller.updateItemQuantity(
+      'item-1',
+      { user: { sub: 'user-123' } } as any,
+      { quantity: '3' },
+    );
+
+    expect(service.updateItemQuantityForUser).toHaveBeenCalledWith(
+      'item-1',
+      'user-123',
+      3,
+    );
+    expect(result).toEqual({ id: 'cart-1' });
+  });
+
+  it('removes item using authenticated user', async () => {
+    service.removeItemForUser.mockResolvedValue({ id: 'cart-1' } as any);
+
+    const result = await controller.removeItem(
+      'item-1',
+      { user: { sub: 'user-123' } } as any,
+    );
+
+    expect(service.removeItemForUser).toHaveBeenCalledWith(
+      'item-1',
+      'user-123',
+    );
+    expect(result).toEqual({ id: 'cart-1' });
+  });
+
+  it('decrements item using authenticated user', async () => {
+    service.decrementItemForUser.mockResolvedValue({ id: 'cart-1' } as any);
+
+    const result = await controller.decrementItem(
+      'item-1',
+      { user: { sub: 'user-123' } } as any,
+    );
+
+    expect(service.decrementItemForUser).toHaveBeenCalledWith(
+      'item-1',
+      'user-123',
+    );
+    expect(result).toEqual({ id: 'cart-1' });
   });
 });

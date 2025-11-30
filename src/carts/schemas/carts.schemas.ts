@@ -34,7 +34,13 @@ export const UpdateCartSchema = z.object({
   items: z.array(CartItemInputSchema).optional(),
 });
 
+export const UpdateCartItemQuantitySchema = z.object({
+  quantity: z.coerce.number().int().min(1),
+});
+
 export type CreateCartInput = z.infer<typeof CreateCartSchema>;
 export type UpdateCartInput = z.infer<typeof UpdateCartSchema>;
 export type CartOutput = z.infer<typeof CartBaseSchema>;
-
+export type UpdateCartItemQuantityInput = z.infer<
+  typeof UpdateCartItemQuantitySchema
+>;
