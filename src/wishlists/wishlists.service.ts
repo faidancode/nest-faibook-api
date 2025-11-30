@@ -1,6 +1,11 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type { MySql2Database } from 'drizzle-orm/mysql2';
-import { desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import * as schema from '../infra/drizzle/schema';
 import type {
@@ -8,6 +13,7 @@ import type {
   UpdateWishlistInput,
   WishlistOutput,
 } from './schemas/wishlists.schemas';
+import type { ApiEnvelope } from '../common/types/api-envelope';
 
 type Db = MySql2Database<typeof schema>;
 type WishlistRow = typeof schema.wishlists.$inferSelect;
@@ -23,6 +29,18 @@ export type WishlistSortOption = 'newest' | 'lowest' | 'highest';
 @Injectable()
 export class WishlistsService {
   constructor(@Inject('DRIZZLE') private readonly db: Db) {}
+
+  private wrapResponse<T>(
+    data: T,
+    meta: Record<string, unknown> = {},
+  ): ApiEnvelope<T> {
+    return {
+      ok: true,
+      data,
+      meta,
+      error: {},
+    };
+  }
 
   private buildWishlistOutput(
     wishlist: WishlistRow,
@@ -98,14 +116,89 @@ export class WishlistsService {
     return sorted;
   }
 
-  async findAll(): Promise<WishlistOutput[]> {
+  private async fetchWishlistByIdOrThrow(id: string): Promise<WishlistOutput> {
+    const [wishlist] = await this.db
+      .select()
+      .from(schema.wishlists)
+      .where(eq(schema.wishlists.id, id))
+      .limit(1);
+
+    if (!wishlist) {
+      throw new NotFoundException('Wishlist not found');
+    }
+
+    const items = await this.db
+      .select()
+      .from(schema.wishlistItems)
+      .where(eq(schema.wishlistItems.wishlistId, id));
+
+    return this.buildWishlistOutput(wishlist, items);
+  }
+
+  private async createWishlistRecord(
+    input: CreateWishlistInput,
+  ): Promise<WishlistOutput> {
+    const [existingWishlist] = await this.db
+      .select()
+      .from(schema.wishlists)
+      .where(eq(schema.wishlists.userId, input.userId))
+      .limit(1);
+
+    if (existingWishlist) {
+      const existingItems = await this.db
+        .select({ bookId: schema.wishlistItems.bookId })
+        .from(schema.wishlistItems)
+        .where(eq(schema.wishlistItems.wishlistId, existingWishlist.id));
+
+      const existingBookIds = new Set(existingItems.map((item) => item.bookId));
+      const newItemsPayload = input.items
+        .filter((item) => !existingBookIds.has(item.bookId))
+        .map((item) => ({
+          id: randomUUID(),
+          wishlistId: existingWishlist.id,
+          bookId: item.bookId,
+        }));
+
+      if (newItemsPayload.length > 0) {
+        await this.db.insert(schema.wishlistItems).values(newItemsPayload);
+      }
+
+      await this.db
+        .update(schema.wishlists)
+        .set({ updatedAt: new Date() })
+        .where(eq(schema.wishlists.id, existingWishlist.id));
+
+      return this.fetchWishlistByIdOrThrow(existingWishlist.id);
+    }
+
+    const id = randomUUID();
+
+    await this.db.insert(schema.wishlists).values({
+      id,
+      userId: input.userId,
+    });
+
+    if (input.items.length > 0) {
+      await this.db.insert(schema.wishlistItems).values(
+        input.items.map((item) => ({
+          id: randomUUID(),
+          wishlistId: id,
+          bookId: item.bookId,
+        })),
+      );
+    }
+
+    return this.fetchWishlistByIdOrThrow(id);
+  }
+
+  async findAll(): Promise<ApiEnvelope<WishlistOutput[]>> {
     const wishlists = await this.db
       .select()
       .from(schema.wishlists)
       .orderBy(desc(schema.wishlists.createdAt));
 
     if (wishlists.length === 0) {
-      return [];
+      return this.wrapResponse([]);
     }
 
     const wishlistIds = wishlists.map((wishlist) => wishlist.id);
@@ -126,10 +219,12 @@ export class WishlistsService {
       }
     }
 
-    return wishlists.map((wishlist) =>
-      this.buildWishlistOutput(
-        wishlist,
-        itemsByWishlist.get(wishlist.id) ?? [],
+    return this.wrapResponse(
+      wishlists.map((wishlist) =>
+        this.buildWishlistOutput(
+          wishlist,
+          itemsByWishlist.get(wishlist.id) ?? [],
+        ),
       ),
     );
   }
@@ -137,7 +232,7 @@ export class WishlistsService {
   async getWishlistByUserId(
     userId: string,
     sort: WishlistSortOption = 'newest',
-  ): Promise<WishlistOutput> {
+  ): Promise<ApiEnvelope<WishlistOutput>> {
     const [wishlist] = await this.db
       .select()
       .from(schema.wishlists)
@@ -145,7 +240,8 @@ export class WishlistsService {
       .limit(1);
 
     if (!wishlist) {
-      return this.create({ userId, items: [] });
+      const created = await this.createWishlistRecord({ userId, items: [] });
+      return this.wrapResponse(created);
     }
 
     const items = await this.db
@@ -167,95 +263,66 @@ export class WishlistsService {
         bookDiscountedPrice: schema.books.discountPriceCents,
       })
       .from(schema.wishlistItems)
-      .leftJoin(
-        schema.books,
-        eq(schema.wishlistItems.bookId, schema.books.id),
-      )
-      .leftJoin(
-        schema.authors,
-        eq(schema.books.authorId, schema.authors.id),
-      )
+      .leftJoin(schema.books, eq(schema.wishlistItems.bookId, schema.books.id))
+      .leftJoin(schema.authors, eq(schema.books.authorId, schema.authors.id))
       .where(eq(schema.wishlistItems.wishlistId, wishlist.id));
 
     const sortedItems = this.sortWishlistItems(items, sort);
+    console.log(
+      this.wrapResponse(this.buildWishlistOutput(wishlist, sortedItems)),
+    );
 
-    return this.buildWishlistOutput(wishlist, sortedItems);
+    return this.wrapResponse(this.buildWishlistOutput(wishlist, sortedItems));
   }
 
-  async findOne(id: string): Promise<WishlistOutput> {
+  async checkWishlistByBookId(userId: string, bookId: string) {
     const [wishlist] = await this.db
-      .select()
+      .select({ id: schema.wishlists.id })
       .from(schema.wishlists)
-      .where(eq(schema.wishlists.id, id))
+      .where(eq(schema.wishlists.userId, userId))
       .limit(1);
 
     if (!wishlist) {
-      throw new NotFoundException('Wishlist not found');
+      return this.wrapResponse({
+        isWishlisted: false,
+        wishlistItemId: null,
+      });
     }
 
-    const items = await this.db
-      .select()
+    const [item] = await this.db
+      .select({ id: schema.wishlistItems.id })
       .from(schema.wishlistItems)
-      .where(eq(schema.wishlistItems.wishlistId, id));
-
-    return this.buildWishlistOutput(wishlist, items);
-  }
-
-  async create(input: CreateWishlistInput): Promise<WishlistOutput> {
-    const [existingWishlist] = await this.db
-      .select()
-      .from(schema.wishlists)
-      .where(eq(schema.wishlists.userId, input.userId))
+      .where(
+        and(
+          eq(schema.wishlistItems.wishlistId, wishlist.id),
+          eq(schema.wishlistItems.bookId, bookId),
+        ),
+      )
       .limit(1);
 
-    if (existingWishlist) {
-      if (input.items.length > 0) {
-        await this.db
-          .delete(schema.wishlistItems)
-          .where(eq(schema.wishlistItems.wishlistId, existingWishlist.id));
-
-        await this.db.insert(schema.wishlistItems).values(
-          input.items.map((item) => ({
-            id: randomUUID(),
-            wishlistId: existingWishlist.id,
-            bookId: item.bookId,
-          })),
-        );
-      }
-
-      await this.db
-        .update(schema.wishlists)
-        .set({ updatedAt: new Date() })
-        .where(eq(schema.wishlists.id, existingWishlist.id));
-
-      return this.findOne(existingWishlist.id);
-    }
-
-    const id = randomUUID();
-
-    await this.db.insert(schema.wishlists).values({
-      id,
-      userId: input.userId,
+    return this.wrapResponse({
+      isWishlisted: Boolean(item),
+      wishlistItemId: item?.id ?? null,
     });
+  }
 
-    if (input.items.length > 0) {
-      await this.db.insert(schema.wishlistItems).values(
-        input.items.map((item) => ({
-          id: randomUUID(),
-          wishlistId: id,
-          bookId: item.bookId,
-        })),
-      );
-    }
+  async findOne(id: string): Promise<ApiEnvelope<WishlistOutput>> {
+    const wishlist = await this.fetchWishlistByIdOrThrow(id);
+    return this.wrapResponse(wishlist);
+  }
 
-    return this.findOne(id);
+  async create(
+    input: CreateWishlistInput,
+  ): Promise<ApiEnvelope<WishlistOutput>> {
+    const wishlist = await this.createWishlistRecord(input);
+    return this.wrapResponse(wishlist);
   }
 
   async update(
     id: string,
     input: UpdateWishlistInput,
-  ): Promise<WishlistOutput> {
-    const existing = await this.findOne(id);
+  ): Promise<ApiEnvelope<WishlistOutput>> {
+    const existing = await this.fetchWishlistByIdOrThrow(id);
 
     await this.db
       .update(schema.wishlists)
@@ -284,13 +351,52 @@ export class WishlistsService {
     return this.findOne(id);
   }
 
-  async remove(id: string): Promise<void> {
-    await this.findOne(id);
+  async removeItemForUser(
+    itemId: string,
+    userId: string,
+  ): Promise<ApiEnvelope<WishlistOutput>> {
+    const [row] = await this.db
+      .select({
+        wishlistId: schema.wishlistItems.wishlistId,
+        wishlistUserId: schema.wishlists.userId,
+      })
+      .from(schema.wishlistItems)
+      .innerJoin(
+        schema.wishlists,
+        eq(schema.wishlistItems.wishlistId, schema.wishlists.id),
+      )
+      .where(eq(schema.wishlistItems.id, itemId))
+      .limit(1);
+
+    if (!row) {
+      throw new NotFoundException('Wishlist item not found');
+    }
+
+    if (row.wishlistUserId !== userId) {
+      throw new ForbiddenException('Cannot modify another user wishlist');
+    }
+
+    await this.db
+      .delete(schema.wishlistItems)
+      .where(eq(schema.wishlistItems.id, itemId));
+
+    await this.db
+      .update(schema.wishlists)
+      .set({ updatedAt: new Date() })
+      .where(eq(schema.wishlists.id, row.wishlistId));
+
+    return this.getWishlistByUserId(userId);
+  }
+
+  async remove(id: string): Promise<ApiEnvelope<null>> {
+    await this.fetchWishlistByIdOrThrow(id);
 
     await this.db
       .delete(schema.wishlistItems)
       .where(eq(schema.wishlistItems.wishlistId, id));
 
     await this.db.delete(schema.wishlists).where(eq(schema.wishlists.id, id));
+
+    return this.wrapResponse(null);
   }
 }

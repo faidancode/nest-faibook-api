@@ -23,6 +23,20 @@ describe('WishlistsService', () => {
     limit: jest.fn().mockResolvedValue(rows),
   });
 
+  const createJoinSelectBuilder = (rows: any[]) => ({
+    from: jest.fn().mockReturnThis(),
+    innerJoin: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    limit: jest.fn().mockResolvedValue(rows),
+  });
+
+  const wrap = (data: any) => ({
+    ok: true,
+    data,
+    meta: {},
+    error: {},
+  });
+
   beforeEach(async () => {
     db = {
       select: jest.fn(),
@@ -53,7 +67,7 @@ describe('WishlistsService', () => {
 
     const result = await service.findAll();
 
-    expect(result).toEqual([]);
+    expect(result).toEqual(wrap([]));
     expect(db.select).toHaveBeenCalledTimes(1);
   });
 
@@ -82,12 +96,14 @@ describe('WishlistsService', () => {
 
     const result = await service.findAll();
 
-    expect(result).toEqual([
-      {
-        ...wishlist,
-        items: [item],
-      },
-    ]);
+    expect(result).toEqual(
+      wrap([
+        {
+          ...wishlist,
+          items: [item],
+        },
+      ]),
+    );
   });
 
   it('throws when wishlist is missing', async () => {
@@ -119,10 +135,12 @@ describe('WishlistsService', () => {
 
     const result = await service.findOne('wishlist-1');
 
-    expect(result).toEqual({
-      ...wishlist,
-      items: [item],
-    });
+    expect(result).toEqual(
+      wrap({
+        ...wishlist,
+        items: [item],
+      }),
+    );
   });
 
   it('creates wishlist along with items', async () => {
@@ -135,11 +153,11 @@ describe('WishlistsService', () => {
       .mockReturnValueOnce({ values: insertWishlistValues })
       .mockReturnValueOnce({ values: insertItemsValues });
 
-    const findOneSpy = jest
-      .spyOn(service, 'findOne')
-      .mockResolvedValue({ id: 'wishlist-1' } as any);
+    (service as any).fetchWishlistByIdOrThrow = jest
+      .fn()
+      .mockResolvedValue({ id: 'wishlist-1' });
 
-    await service.create({
+    const result = await service.create({
       userId: 'user-1',
       items: [{ bookId: 'book-1' }],
     });
@@ -150,9 +168,11 @@ describe('WishlistsService', () => {
     expect(insertItemsValues).toHaveBeenCalledWith([
       expect.objectContaining({ bookId: 'book-1' }),
     ]);
-    expect(findOneSpy).toHaveBeenCalledWith(expect.any(String));
-
-    findOneSpy.mockRestore();
+    expect(result).toEqual(
+      wrap({
+        id: 'wishlist-1',
+      }),
+    );
   });
 
   it('reuses existing wishlist when user already has one', async () => {
@@ -163,10 +183,10 @@ describe('WishlistsService', () => {
       updatedAt: new Date(),
     };
 
-    db.select.mockReturnValueOnce(createFindOneBuilder([existing]));
-
-    const deleteWhereMock = jest.fn().mockResolvedValue(undefined);
-    db.delete.mockReturnValueOnce({ where: deleteWhereMock });
+    const existingItem = { bookId: 'book-1' };
+    db.select
+      .mockReturnValueOnce(createFindOneBuilder([existing]))
+      .mockReturnValueOnce(createWhereSelectBuilder([existingItem]));
 
     const insertItemsValues = jest.fn().mockResolvedValue(undefined);
     db.insert.mockReturnValueOnce({ values: insertItemsValues });
@@ -176,25 +196,22 @@ describe('WishlistsService', () => {
     db.update.mockReturnValue({ set: setMock });
 
     const updatedResult = { ...existing, items: [] };
-    const findOneSpy = jest
-      .spyOn(service, 'findOne')
-      .mockResolvedValue(updatedResult as any);
+    (service as any).fetchWishlistByIdOrThrow = jest
+      .fn()
+      .mockResolvedValue(updatedResult);
 
     const result = await service.create({
       userId: existing.userId,
-      items: [{ bookId: 'book-1' }],
+      items: [{ bookId: 'book-1' }, { bookId: 'book-2' }],
     });
 
-    expect(deleteWhereMock).toHaveBeenCalled();
     expect(insertItemsValues).toHaveBeenCalledWith([
-      expect.objectContaining({ wishlistId: existing.id, bookId: 'book-1' }),
+      expect.objectContaining({ wishlistId: existing.id, bookId: 'book-2' }),
     ]);
     expect(setMock).toHaveBeenCalledWith(
       expect.objectContaining({ updatedAt: expect.any(Date) }),
     );
-    expect(result).toEqual(updatedResult);
-
-    findOneSpy.mockRestore();
+    expect(result).toEqual(wrap(updatedResult));
   });
 
   it('updates wishlist and replaces items', async () => {
@@ -207,9 +224,10 @@ describe('WishlistsService', () => {
     };
     const updated = { ...existing, userId: 'user-2' };
 
-    const findOneSpy = jest.spyOn(service, 'findOne');
-    findOneSpy.mockResolvedValueOnce(existing as any);
-    findOneSpy.mockResolvedValueOnce(updated as any);
+    (service as any).fetchWishlistByIdOrThrow = jest
+      .fn()
+      .mockResolvedValue(existing);
+    jest.spyOn(service, 'findOne').mockResolvedValueOnce(wrap(updated) as any);
 
     const whereMock = jest.fn().mockResolvedValue(undefined);
     const setMock = jest.fn().mockReturnValue({ where: whereMock });
@@ -233,15 +251,13 @@ describe('WishlistsService', () => {
     expect(insertItemsValues).toHaveBeenCalledWith([
       expect.objectContaining({ bookId: 'book-2' }),
     ]);
-    expect(result).toEqual(updated);
-
-    findOneSpy.mockRestore();
+    expect(result).toEqual(wrap(updated));
   });
 
   it('removes wishlist and its items', async () => {
-    jest
-      .spyOn(service, 'findOne')
-      .mockResolvedValue({ id: 'wishlist-1' } as any);
+    (service as any).fetchWishlistByIdOrThrow = jest
+      .fn()
+      .mockResolvedValue({ id: 'wishlist-1' });
 
     const deleteItemsWhere = jest.fn().mockResolvedValue(undefined);
     const deleteWishlistWhere = jest.fn().mockResolvedValue(undefined);
@@ -250,10 +266,37 @@ describe('WishlistsService', () => {
       .mockReturnValueOnce({ where: deleteItemsWhere })
       .mockReturnValueOnce({ where: deleteWishlistWhere });
 
-    await service.remove('wishlist-1');
+    const result = await service.remove('wishlist-1');
 
     expect(deleteItemsWhere).toHaveBeenCalled();
     expect(deleteWishlistWhere).toHaveBeenCalled();
+    expect(result).toEqual(wrap(null));
+  });
+
+  it('removes a wishlist item for the user', async () => {
+    db.select.mockReturnValueOnce(
+      createJoinSelectBuilder([
+        { wishlistId: 'wishlist-1', wishlistUserId: 'user-1' },
+      ]),
+    );
+
+    const deleteWhereMock = jest.fn().mockResolvedValue(undefined);
+    db.delete.mockReturnValueOnce({ where: deleteWhereMock });
+
+    const updateWhereMock = jest.fn().mockResolvedValue(undefined);
+    const setMock = jest.fn().mockReturnValue({ where: updateWhereMock });
+    db.update.mockReturnValueOnce({ set: setMock });
+
+    jest
+      .spyOn(service, 'getWishlistByUserId')
+      .mockResolvedValue(wrap({ id: 'wishlist-1' }) as any);
+
+    const result = await service.removeItemForUser('item-1', 'user-1');
+
+    expect(deleteWhereMock).toHaveBeenCalled();
+    expect(updateWhereMock).toHaveBeenCalled();
+    expect(service.getWishlistByUserId).toHaveBeenCalledWith('user-1');
+    expect(result).toEqual(wrap({ id: 'wishlist-1' }));
   });
 
   it('creates wishlist when user has none', async () => {
@@ -265,16 +308,17 @@ describe('WishlistsService', () => {
       updatedAt: new Date(),
       items: [],
     };
-    const createSpy = jest
-      .spyOn(service, 'create')
-      .mockResolvedValue(created as any);
+    (service as any).createWishlistRecord = jest
+      .fn()
+      .mockResolvedValue(created);
 
     const result = await service.getWishlistByUserId('user-1');
 
-    expect(createSpy).toHaveBeenCalledWith({ userId: 'user-1', items: [] });
-    expect(result).toEqual(created);
-
-    createSpy.mockRestore();
+    expect((service as any).createWishlistRecord).toHaveBeenCalledWith({
+      userId: 'user-1',
+      items: [],
+    });
+    expect(result).toEqual(wrap(created));
   });
 
   it('returns wishlist with items for user', async () => {
@@ -298,10 +342,12 @@ describe('WishlistsService', () => {
 
     const result = await service.getWishlistByUserId('user-1');
 
-    expect(result).toEqual({
-      ...wishlist,
-      items: [item],
-    });
+    expect(result).toEqual(
+      wrap({
+        ...wishlist,
+        items: [item],
+      }),
+    );
   });
 
   it('sorts wishlist items by newest by default', async () => {
@@ -332,7 +378,7 @@ describe('WishlistsService', () => {
 
     const result = await service.getWishlistByUserId('user-1');
 
-    expect(result.items.map((item: any) => item.id)).toEqual([
+    expect(result.data.items.map((item: any) => item.id)).toEqual([
       'item-newer',
       'item-older',
     ]);
@@ -370,7 +416,7 @@ describe('WishlistsService', () => {
 
     const result = await service.getWishlistByUserId('user-1', 'lowest');
 
-    expect(result.items.map((item: any) => item.id)).toEqual([
+    expect(result.data.items.map((item: any) => item.id)).toEqual([
       'item-cheap',
       'item-expensive',
     ]);
@@ -410,7 +456,7 @@ describe('WishlistsService', () => {
 
     const result = await service.getWishlistByUserId('user-1', 'highest');
 
-    expect(result.items.map((item: any) => item.id)).toEqual([
+    expect(result.data.items.map((item: any) => item.id)).toEqual([
       'item-expensive',
       'item-discounted',
     ]);
