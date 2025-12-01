@@ -3,10 +3,19 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CustomersService } from './customers.service';
 import { OrdersService } from '../orders/orders.service';
 
+jest.mock('bcrypt', () => ({
+  hash: jest.fn(),
+}));
+
+import { hash } from 'bcrypt';
+
 describe('CustomersService', () => {
   let service: CustomersService;
   let db: any;
   let ordersService: jest.Mocked<OrdersService>;
+  const mockedHash = hash as unknown as jest.MockedFunction<
+    (data: string, saltOrRounds: number) => Promise<string>
+  >;
 
   const createListBuilder = (rows: any[]) => ({
     from: jest.fn().mockReturnThis(),
@@ -27,8 +36,14 @@ describe('CustomersService', () => {
     limit: jest.fn().mockResolvedValue(rows),
   });
 
+  const createUpdateBuilder = (onWhere?: jest.Mock) => {
+    const where = onWhere ?? jest.fn().mockResolvedValue(undefined);
+    const set = jest.fn().mockReturnValue({ where });
+    return { set, where };
+  };
+
   beforeEach(async () => {
-    db = { select: jest.fn() };
+    db = { select: jest.fn(), update: jest.fn() };
     ordersService = {
       getOrdersByUserId: jest.fn(),
     } as any;
@@ -48,6 +63,7 @@ describe('CustomersService', () => {
     }).compile();
 
     service = module.get(CustomersService);
+    mockedHash.mockReset();
   });
 
   it('should be defined', () => {
@@ -105,5 +121,74 @@ describe('CustomersService', () => {
 
     expect(ordersService.getOrdersByUserId).toHaveBeenCalledWith('cust-1');
     expect(result).toEqual({ customer, orders });
+  });
+
+  it('throws when updating profile for missing customer', async () => {
+    db.select.mockReturnValueOnce(createDetailBuilder([]));
+
+    await expect(
+      service.updateProfile('missing', { name: 'John Doe' }),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('updates only the name when provided', async () => {
+    const customer = {
+      id: 'cust-1',
+      name: 'Alice',
+      email: 'a@example.com',
+      role: 'CUSTOMER',
+      createdAt: new Date(),
+    };
+    db.select.mockReturnValueOnce(createDetailBuilder([customer]));
+    const updateBuilder = createUpdateBuilder();
+    db.update.mockReturnValue(updateBuilder);
+
+    const result = await service.updateProfile('cust-1', {
+      name: 'New Name',
+    });
+
+    expect(updateBuilder.set).toHaveBeenCalledWith({
+      name: 'New Name',
+      updatedAt: expect.any(Date),
+    });
+    expect(updateBuilder.where).toHaveBeenCalled();
+    expect(mockedHash).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      id: 'cust-1',
+      name: 'New Name',
+      email: 'a@example.com',
+      role: 'CUSTOMER',
+    });
+  });
+
+  it('hashes password when updating it', async () => {
+    const customer = {
+      id: 'cust-1',
+      name: 'Alice',
+      email: 'a@example.com',
+      role: 'CUSTOMER',
+      createdAt: new Date(),
+    };
+    db.select.mockReturnValueOnce(createDetailBuilder([customer]));
+    const updateBuilder = createUpdateBuilder();
+    db.update.mockReturnValue(updateBuilder);
+    mockedHash.mockResolvedValueOnce('hashed-pass');
+
+    const result = await service.updateProfile('cust-1', {
+      password: 'new-secret',
+    });
+
+    expect(mockedHash).toHaveBeenCalledWith('new-secret', 10);
+    expect(updateBuilder.set).toHaveBeenCalledWith({
+      passwordHash: 'hashed-pass',
+      updatedAt: expect.any(Date),
+    });
+    expect(updateBuilder.where).toHaveBeenCalled();
+    expect(result).toEqual({
+      id: 'cust-1',
+      name: 'Alice',
+      email: 'a@example.com',
+      role: 'CUSTOMER',
+    });
   });
 });

@@ -141,7 +141,7 @@ describe('OrdersController', () => {
 
   it('forwards update status for customer with user id from token', async () => {
     const req = createRequest(userId, 'CUSTOMER');
-    const body = { nextStatus: 'DELIVERED' };
+    const body = { nextStatus: 'COMPLETED' };
     await controller.updateCustomerStatus('order-1', body, req);
     expect(service.updateCustomerStatus).toHaveBeenCalledWith(
       'order-1',

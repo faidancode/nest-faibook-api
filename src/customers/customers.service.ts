@@ -2,8 +2,12 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, asc, eq, like, or, sql } from 'drizzle-orm';
 import type { MySql2Database } from 'drizzle-orm/mysql2';
 import * as schema from '../infra/drizzle/schema';
-import type { ListCustomersQuery } from './customers.schemas';
+import type {
+  ListCustomersQuery,
+  UpdateCustomerProfileInput,
+} from './customers.schemas';
 import { OrdersService } from '../orders/orders.service';
+import * as bcrypt from 'bcrypt';
 
 type Db = MySql2Database<typeof schema>;
 
@@ -115,6 +119,59 @@ export class CustomersService {
     return {
       customer: customer as CustomerRow,
       orders,
+    };
+  }
+
+  async updateProfile(
+    userId: string,
+    input: UpdateCustomerProfileInput,
+  ): Promise<{ id: string; name: string; email: string; role: string }> {
+    const [user] = await this.db
+      .select({
+        id: schema.users.id,
+        name: schema.users.name,
+        email: schema.users.email,
+        role: schema.users.role,
+      })
+      .from(schema.users)
+      .where(
+        and(
+          eq(schema.users.id, userId),
+          eq(schema.users.role, 'CUSTOMER'),
+          sql`${schema.users.deletedAt} IS NULL`,
+        ),
+      )
+      .limit(1);
+
+    if (!user) {
+      throw new NotFoundException('Customer not found');
+    }
+
+    const updates: Partial<typeof schema.users.$inferInsert> = {};
+
+    if (input.name !== undefined) {
+      updates.name = input.name;
+    }
+
+    if (input.password !== undefined) {
+      updates.passwordHash = await bcrypt.hash(input.password, 10);
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await this.db
+        .update(schema.users)
+        .set({
+          ...updates,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.users.id, userId));
+    }
+
+    return {
+      id: user.id,
+      name: input.name ?? user.name,
+      email: user.email,
+      role: user.role,
     };
   }
 }

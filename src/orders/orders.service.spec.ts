@@ -790,6 +790,7 @@ describe('OrdersService', () => {
         { status: 'PAID', count: 3 },
         { status: 'SHIPPED', count: 2 },
         { status: 'DELIVERED', count: 4 },
+        { status: 'COMPLETED', count: 1 },
         { status: 'CANCELLED', count: 1 },
         { status: 'PENDING', count: 2 },
       ]),
@@ -798,10 +799,11 @@ describe('OrdersService', () => {
     const stats = await service.getAdminOrdersStats();
 
     expect(stats).toEqual({
-      total: 12,
+      total: 13,
       paid: 3,
       shipped: 2,
-      completed: 4,
+      delivered: 4,
+      completed: 1,
       cancelled: 1,
       pending: 2,
       processing: 0,

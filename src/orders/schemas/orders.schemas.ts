@@ -6,6 +6,7 @@ export const OrderStatusEnum = z.enum([
   'PROCESSING',
   'SHIPPED',
   'DELIVERED',
+  'COMPLETED',
   'CANCELLED',
 ]);
 
@@ -128,7 +129,10 @@ export const CheckoutOrderSchema = z.object({
 });
 
 export const CustomerUpdateStatusSchema = z.object({
-  nextStatus: z.literal('DELIVERED'),
+  nextStatus: z
+    .enum(['COMPLETED', 'DELIVERED'])
+    .default('COMPLETED')
+    .transform(() => 'COMPLETED' as const),
 });
 
 export const AdminUpdateStatusSchema = z.object({

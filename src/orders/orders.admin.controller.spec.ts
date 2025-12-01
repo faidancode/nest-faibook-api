@@ -51,7 +51,7 @@ describe('OrdersAdminController', () => {
   });
 
   it('returns stats payload from service', async () => {
-    const stats = { total: 5, paid: 2, shipped: 1, completed: 1, cancelled: 1, pending: 0, processing: 0 };
+    const stats = { total: 5, paid: 2, shipped: 1, delivered: 0, completed: 1, cancelled: 1, pending: 0, processing: 0 };
     service.getAdminOrdersStats.mockResolvedValue(stats as any);
 
     const result = await controller.stats();

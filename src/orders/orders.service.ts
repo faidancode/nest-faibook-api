@@ -776,6 +776,7 @@ export class OrdersService {
     paid: number;
     shipped: number;
     completed: number;
+    delivered: number;
     cancelled: number;
     pending: number;
     processing: number;
@@ -794,6 +795,7 @@ export class OrdersService {
       paid: 0,
       shipped: 0,
       completed: 0,
+      delivered: 0,
       cancelled: 0,
       pending: 0,
       processing: 0,
@@ -805,7 +807,8 @@ export class OrdersService {
       stats.total += count;
       if (status === 'PAID') stats.paid += count;
       if (status === 'SHIPPED') stats.shipped += count;
-      if (status === 'DELIVERED') stats.completed += count;
+      if (status === 'DELIVERED') stats.delivered += count;
+      if (status === 'COMPLETED') stats.completed += count;
       if (status === 'CANCELLED') stats.cancelled += count;
       if (status === 'PENDING') stats.pending += count;
       if (status === 'PROCESSING') stats.processing += count;
@@ -822,18 +825,18 @@ export class OrdersService {
     const order = await this.findOrderRow(orderId, userId);
     this.ensureStatus(
       order.status as OrderStatus,
-      'SHIPPED',
-      'Only shipped orders can be marked as delivered',
+      'DELIVERED',
+      'Only delivered orders can be marked as completed',
     );
 
-    if (input.nextStatus !== 'DELIVERED') {
+    if (input.nextStatus !== 'COMPLETED') {
       throw new BadRequestException('Invalid target status');
     }
 
     await this.db
       .update(schema.orders)
       .set({
-        status: 'DELIVERED',
+        status: 'COMPLETED',
         completedAt: new Date(),
         updatedAt: new Date(),
       })
