@@ -147,7 +147,7 @@ describe('CartsService', () => {
     });
 
     expect(updateItemSet).toHaveBeenCalledWith(
-      expect.objectContaining({ quantity: 3, priceCentsAtAdd: 2000 }),
+      expect.objectContaining({ quantity: 5, priceCentsAtAdd: 2000 }),
     );
     expect(insertValues).toHaveBeenCalledWith(
       expect.arrayContaining([

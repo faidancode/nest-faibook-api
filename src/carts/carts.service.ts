@@ -257,7 +257,7 @@ export class CartsService {
         await this.db
           .update(schema.cartItems)
           .set({
-            quantity: item.quantity,
+            quantity: found.quantity + item.quantity,
             priceCentsAtAdd: item.priceCentsAtAdd,
             updatedAt: new Date(),
           })
