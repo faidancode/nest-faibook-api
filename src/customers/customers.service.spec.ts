@@ -83,6 +83,7 @@ describe('CustomersService', () => {
       page: 1,
       pageSize: 10,
       q: undefined,
+      search: undefined,
     });
 
     expect(result).toEqual({
@@ -90,6 +91,24 @@ describe('CustomersService', () => {
       meta: { page: 1, pageSize: 10, total: 1, totalPages: 1 },
     });
     expect(db.select).toHaveBeenCalledTimes(2);
+  });
+
+  it('applies search term when listing customers', async () => {
+    db.select
+      .mockReturnValueOnce(createListBuilder([]))
+      .mockReturnValueOnce(createCountBuilder(0));
+
+    const buildWhereSpy = jest.spyOn<any>(service as any, 'buildWhere');
+
+    await service.listCustomers({
+      page: 1,
+      pageSize: 10,
+      q: undefined,
+      search: 'alice',
+    });
+
+    expect(buildWhereSpy).toHaveBeenCalledWith(undefined, 'alice');
+    buildWhereSpy.mockRestore();
   });
 
   it('throws when customer not found on detail', async () => {

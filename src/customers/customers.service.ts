@@ -27,14 +27,15 @@ export class CustomersService {
     private readonly ordersService: OrdersService,
   ) {}
 
-  private buildWhere(q?: string) {
+  private buildWhere(q?: string, search?: string) {
     let where: any = and(
       eq(schema.users.role, 'CUSTOMER'),
       sql`${schema.users.deletedAt} IS NULL`,
     );
 
-    if (q?.trim()) {
-      const term = `%${q.trim()}%`;
+    const termRaw = search ?? q;
+    if (termRaw?.trim()) {
+      const term = `%${termRaw.trim()}%`;
       where = and(
         where,
         or(
@@ -52,7 +53,7 @@ export class CustomersService {
     items: CustomerRow[];
     meta: { page: number; pageSize: number; total: number; totalPages: number };
   }> {
-    const where = this.buildWhere(query.q);
+    const where = this.buildWhere(query.q, query.search);
     const offset = (query.page - 1) * query.pageSize;
 
     const [rows, [{ total }]] = await Promise.all([

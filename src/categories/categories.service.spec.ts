@@ -73,6 +73,7 @@ describe('CategoriesService', () => {
       page: 1,
       pageSize: 5,
       q: undefined,
+      search: undefined,
       sort: 'name:asc',
     });
 
@@ -88,6 +89,26 @@ describe('CategoriesService', () => {
     expect(db.select).toHaveBeenCalledTimes(2);
   });
 
+  it('applies search term when listing categories', async () => {
+    const rows = [];
+    db.select
+      .mockReturnValueOnce(createSelectBuilder(rows))
+      .mockReturnValueOnce(createCountBuilder(0));
+
+    const buildWhereSpy = jest.spyOn<any>(service as any, 'buildWhere');
+
+    await service.findAll({
+      page: 1,
+      pageSize: 10,
+      q: undefined,
+      search: 'fik',
+      sort: 'name:asc',
+    });
+
+    expect(buildWhereSpy).toHaveBeenCalledWith(undefined, 'fik');
+    buildWhereSpy.mockRestore();
+  });
+
   it('throws when category not found', async () => {
     db.select.mockReturnValueOnce(createFindOneBuilder([]));
 
@@ -99,6 +120,7 @@ describe('CategoriesService', () => {
   it('creates a category and derives slug from name when missing', async () => {
     const insertValues = jest.fn().mockResolvedValue(undefined);
     db.insert.mockReturnValue({ values: insertValues });
+    db.select.mockReturnValueOnce(createFindOneBuilder([]));
     const findOneSpy = jest
       .spyOn(service, 'findOne')
       .mockResolvedValue({ id: 'x', name: 'Fiksi', slug: 'fiksi' } as any);

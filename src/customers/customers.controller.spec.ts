@@ -41,14 +41,31 @@ describe('CustomersController', () => {
       page: '2',
       pageSize: '5',
       q: 'john',
+      search: undefined,
     });
 
     expect(service.listCustomers).toHaveBeenCalledWith({
       page: 2,
       pageSize: 5,
       q: 'john',
+      search: undefined,
     });
     expect(result).toBe(payload);
+  });
+
+  it('passes search query to service', async () => {
+    service.listCustomers.mockResolvedValue({ items: [], meta: {} } as any);
+
+    await controller.list({
+      page: '1',
+      pageSize: '10',
+      q: undefined,
+      search: 'alice',
+    });
+
+    expect(service.listCustomers).toHaveBeenCalledWith(
+      expect.objectContaining({ search: 'alice' }),
+    );
   });
 
   it('returns detail payload with orders', async () => {

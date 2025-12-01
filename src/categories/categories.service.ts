@@ -23,16 +23,17 @@ type BookRow = typeof schema.books.$inferSelect;
 export class CategoriesService {
   constructor(@Inject("DRIZZLE") private readonly db: Db) {}
 
-  private buildWhere(q?: string) {
+  private buildWhere(q?: string, search?: string) {
     let where: any = sql`1 = 1`;
 
     // soft delete filter
     where = and(where, sql`${schema.categories.deletedAt} IS NULL`);
 
-    if (q && q.trim().length > 0) {
+    const term = (search ?? q)?.trim();
+    if (term && term.length > 0) {
       where = and(
         where,
-        like(schema.categories.name, `%${q.trim()}%`),
+        like(schema.categories.name, `%${term}%`),
       );
     }
 
@@ -82,7 +83,7 @@ export class CategoriesService {
   }
 
   async findAll(query: ListCategoriesQuery) {
-    const { page, pageSize, q, sort } = query;
+    const { page, pageSize, q, sort, search } = query;
 
     const [sortField, sortDirRaw] = sort.split(":");
     const sortDir = sortDirRaw?.toLowerCase() === "desc" ? "desc" : "asc";
@@ -96,7 +97,7 @@ export class CategoriesService {
         ? desc(schema.categories.name)
         : asc(schema.categories.name);
 
-    const where = this.buildWhere(q);
+    const where = this.buildWhere(q, search);
     const offset = (page - 1) * pageSize;
 
     const [rows, [{ total }]] = await Promise.all([

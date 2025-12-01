@@ -47,9 +47,25 @@ describe('CategoriesController', () => {
       page: 2,
       pageSize: 5,
       q: undefined,
+      search: undefined,
       sort: 'createdAt:desc',
     });
     expect(result).toBe(payload);
+  });
+
+  it('passes search param to service', async () => {
+    service.findAll.mockResolvedValue({ items: [], meta: {} } as any);
+
+    await controller.findAll({
+      page: '1',
+      pageSize: '10',
+      sort: 'name:asc',
+      search: 'fik',
+    });
+
+    expect(service.findAll).toHaveBeenCalledWith(
+      expect.objectContaining({ search: 'fik' }),
+    );
   });
 
   it('returns category by id', async () => {
@@ -90,6 +106,11 @@ describe('CategoriesController', () => {
     const result = await controller.remove('1');
 
     expect(service.remove).toHaveBeenCalledWith('1');
-    expect(result).toBeNull();
+    expect(result).toEqual({
+      ok: true,
+      data: null,
+      meta: null,
+      error: null,
+    });
   });
 });

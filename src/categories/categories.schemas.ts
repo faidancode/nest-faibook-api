@@ -15,6 +15,7 @@ export const ListCategoriesQuerySchema = z.object({
     .transform((v) => (v ? parseInt(v, 10) : 10))
     .pipe(z.number().int().min(1).max(100)),
   q: z.string().optional(),
+  search: z.string().optional(),
   sort: z
     .string()
     .optional()
