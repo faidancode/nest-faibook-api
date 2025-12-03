@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -11,8 +12,11 @@ import {
   Post,
   Query,
   Req,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request } from 'express';
 import { BooksService } from './books.service';
 import {
@@ -27,10 +31,14 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import type { JwtPayload } from '../auth/auth.schemas';
 import { OptionalJwtAuthGuard } from '../auth/optional-jwt.guard';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Controller('v1/books')
 export class BooksController {
-  constructor(private readonly booksService: BooksService) {}
+  constructor(
+    private readonly booksService: BooksService,
+    private readonly cloudinaryService: CloudinaryService,
+  ) {}
 
   @Get()
   async findAll(@Query() query: unknown) {
@@ -115,8 +123,29 @@ export class BooksController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   @HttpCode(HttpStatus.CREATED)
-  async create(@Body() body: unknown) {
-    const parsed = CreateBookSchema.parse(body);
+  @UseInterceptors(FileInterceptor('coverUrl'))
+  async create(
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Body() body: unknown,
+  ) {
+    const basePayload = CreateBookSchema.omit({
+      coverUrl: true,
+    }).parse(body);
+    const coverUrlInput =
+      typeof (body as { coverUrl?: unknown })?.coverUrl === 'string'
+        ? (body as { coverUrl?: string }).coverUrl
+        : undefined;
+
+    let coverUrl = coverUrlInput;
+    if (file && file.buffer && file.size > 0) {
+      coverUrl = await this.cloudinaryService.uploadImage(file,'faibook/books');
+    }
+
+    if (!coverUrl) {
+      throw new BadRequestException('Cover image is required');
+    }
+
+    const parsed = CreateBookSchema.parse({ ...basePayload, coverUrl });
     return this.booksService.create(parsed);
   }
 

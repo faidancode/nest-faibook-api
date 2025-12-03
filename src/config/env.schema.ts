@@ -53,6 +53,11 @@ export const EnvSchema = z.object({
     .transform((v) => parseInt(v, 10))
     .default(10),
 
+  // Cloudinary
+  CLOUDINARY_CLOUD_NAME: z.string().min(1),
+  CLOUDINARY_API_KEY: z.string().min(1),
+  CLOUDINARY_API_SECRET: z.string().min(1),
+
   // Midtrans
   MIDTRANS_IS_PRODUCTION: z
     .string()

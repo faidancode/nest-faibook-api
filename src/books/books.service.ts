@@ -782,7 +782,14 @@ export class BooksService {
     };
   }
 
-  async create(input: CreateBookInput): Promise<BookWithAuthorName> {
+  async create(
+    input: Omit<CreateBookInput, 'coverUrl'> & { coverUrl?: string },
+  ): Promise<BookWithAuthorName> {
+    const coverUrl = input.coverUrl?.trim();
+    if (!coverUrl) {
+      throw new BadRequestException('Cover image is required');
+    }
+
     const id = randomUUID();
     const slug = input.slug ?? this.slugify(input.title);
 
@@ -796,7 +803,7 @@ export class BooksService {
       priceCents: input.priceCents,
       discountPriceCents: input.discountPriceCents ?? null,
       stock: input.stock ?? 0,
-      coverUrl: input.coverUrl,
+      coverUrl,
       description: input.description,
       pages: input.pages ?? null,
       language: input.language ?? null,

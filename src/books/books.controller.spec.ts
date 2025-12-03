@@ -1,10 +1,13 @@
+import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { BooksController } from './books.controller';
 import { BooksService } from './books.service';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 describe('BooksController', () => {
   let controller: BooksController;
   let service: jest.Mocked<BooksService>;
+  let cloudinary: jest.Mocked<CloudinaryService>;
 
   beforeEach(async () => {
     const serviceMock: Partial<Record<keyof BooksService, jest.Mock>> = {
@@ -20,6 +23,12 @@ describe('BooksController', () => {
       remove: jest.fn(),
     };
 
+    const cloudinaryMock: Partial<
+      Record<keyof CloudinaryService, jest.Mock>
+    > = {
+      uploadImage: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [BooksController],
       providers: [
@@ -27,11 +36,18 @@ describe('BooksController', () => {
           provide: BooksService,
           useValue: serviceMock,
         },
+        {
+          provide: CloudinaryService,
+          useValue: cloudinaryMock,
+        },
       ],
     }).compile();
 
     controller = module.get<BooksController>(BooksController);
     service = module.get(BooksService) as jest.Mocked<BooksService>;
+    cloudinary = module.get(
+      CloudinaryService,
+    ) as jest.Mocked<CloudinaryService>;
   });
 
   it('should be defined', () => {
@@ -217,7 +233,7 @@ describe('BooksController', () => {
     expect(result).toBe(payload);
   });
 
-  it('validates payload when creating book', async () => {
+  it('validates payload when creating book using provided cover url when no file uploaded', async () => {
     service.create.mockResolvedValue({ id: 'book-1' } as any);
 
     const body = {
@@ -228,15 +244,54 @@ describe('BooksController', () => {
       description: 'desc',
     };
 
-    const result = await controller.create(body);
+    const result = await controller.create(undefined, body);
 
     expect(service.create).toHaveBeenCalledWith(
       expect.objectContaining({
         title: 'Book Title',
         priceCents: 1000,
+        coverUrl: 'https://example.com/a.jpg',
+      }),
+    );
+    expect(cloudinary.uploadImage).not.toHaveBeenCalled();
+    expect(result).toEqual({ id: 'book-1' });
+  });
+
+  it('uploads file to cloudinary when cover file provided and uses returned url', async () => {
+    service.create.mockResolvedValue({ id: 'book-1' } as any);
+    cloudinary.uploadImage.mockResolvedValue('https://cdn.test/uploaded.jpg');
+
+    const file = {
+      buffer: Buffer.from('file'),
+      size: 10,
+    } as Express.Multer.File;
+    const body = {
+      title: 'Book Title',
+      categoryId: '00000000-0000-0000-0000-000000000000',
+      priceCents: 1000,
+      description: 'desc',
+    };
+
+    const result = await controller.create(file, body);
+
+    expect(cloudinary.uploadImage).toHaveBeenCalledWith(file);
+    expect(service.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        coverUrl: 'https://cdn.test/uploaded.jpg',
       }),
     );
     expect(result).toEqual({ id: 'book-1' });
+  });
+
+  it('throws bad request when neither file nor cover url provided', async () => {
+    await expect(
+      controller.create(undefined, {
+        title: 'Book Title',
+        categoryId: '00000000-0000-0000-0000-000000000000',
+        priceCents: 1000,
+        description: 'desc',
+      }),
+    ).rejects.toThrow(BadRequestException);
   });
 
   it('passes id and payload to update', async () => {

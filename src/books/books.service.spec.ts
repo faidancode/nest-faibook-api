@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { BooksService } from './books.service';
 
@@ -114,6 +114,9 @@ describe('BooksService', () => {
       categoryId: undefined,
       authorId: undefined,
       active: undefined,
+      category: undefined,
+      minPrice: undefined,
+      maxPrice: undefined,
     });
 
     expect(result).toEqual({
@@ -185,6 +188,28 @@ describe('BooksService', () => {
     );
     expect(created).toEqual({ id: 'book-1', slug: 'book-a', authorName: null });
     findOneSpy.mockRestore();
+  });
+
+  it('throws bad request when cover url is missing', async () => {
+    await expect(
+      service.create({
+        title: 'Book A',
+        categoryId: 'cat-1',
+        authorId: undefined,
+        isbn: undefined,
+        priceCents: 1000,
+        discountPriceCents: undefined,
+        stock: 0,
+        coverUrl: undefined,
+        description: 'Desc',
+        pages: undefined,
+        language: undefined,
+        publisher: undefined,
+        publishedAt: undefined,
+        slug: undefined,
+        active: true,
+      }),
+    ).rejects.toThrow(BadRequestException);
   });
 
   it('updates a book using provided fields', async () => {
