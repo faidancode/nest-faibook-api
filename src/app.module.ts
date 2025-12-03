@@ -20,6 +20,7 @@ import { OrdersModule } from './orders/orders.module';
 import { MidtransModule } from './midtrans/midtrans.module';
 import { CustomersModule } from './customers/customers.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { AuthorsModule } from './authors/authors.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     AuthModule,
     HealthModule,
     CategoriesModule,
+    AuthorsModule,
     BooksModule,
     WishlistsModule,
     AddressesModule,
