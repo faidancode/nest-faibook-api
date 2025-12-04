@@ -28,7 +28,7 @@ export const EnvSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(16),
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
 
-  // CORS
+  // CORS Config
   CORS_ORIGINS: z.string().default('*'), // "http://localhost:3000,https://myapp.com"
   CORS_CREDENTIALS: z
     .string()
