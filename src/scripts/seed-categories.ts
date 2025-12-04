@@ -4,6 +4,7 @@ import * as schema from '../infra/drizzle/schema';
 import { eq } from 'drizzle-orm';
 import { config as loadEnv } from 'dotenv';
 import { resolve } from 'path';
+import { randomUUID } from 'crypto';
 
 function ensureEnvLoaded() {
   const cwd = process.cwd();
@@ -11,27 +12,20 @@ function ensureEnvLoaded() {
   loadEnv({ path: resolve(cwd, '.env') });
 }
 
-type CategorySeed = { id: string; name: string; icon: string; slug: string };
+type CategorySeed = { name: string; icon: string; slug: string; id?: string };
 
 const categories: CategorySeed[] = [
-  { id: '1', name: 'Religion & Spirituality', icon: 'BookOpen', slug: 'religion' },
-  { id: '2', name: 'Architecture & Design', icon: 'Shapes', slug: 'architecture' },
-  { id: '3', name: 'Languages & Linguistics', icon: 'PenTool', slug: 'languages' },
-  { id: '4', name: 'Biographies & Memoirs', icon: 'User', slug: 'biographies' },
-  { id: '5', name: 'Business & Management', icon: 'Briefcase', slug: 'business' },
-  { id: '6', name: 'Children Fiction', icon: 'BookOpen', slug: 'children-fiction' },
-  { id: '7', name: 'Young Adult Fiction', icon: 'BookOpen', slug: 'young-adult-fiction' },
-  { id: '8', name: 'Adult Fiction', icon: 'BookOpen', slug: 'adult-fiction' },
-  { id: '9', name: 'Law & Government', icon: 'Library', slug: 'law' },
-  { id: '10', name: 'Health & Wellness', icon: 'Heart', slug: 'health-wellness' },
-  { id: '11', name: 'Computers & Technology', icon: 'Laptop', slug: 'computers-technology' },
-  { id: '12', name: 'Comics & Graphic Novels', icon: 'BookOpen', slug: 'comics-graphic-novels' },
-  { id: '13', name: 'Medical Reference', icon: 'Heart', slug: 'medical-reference' },
-  { id: '14', name: 'Music & Performing Arts', icon: 'Music', slug: 'music-performing-arts' },
-  { id: '15', name: 'Self Improvement', icon: 'User', slug: 'self-improvement' },
-  { id: '16', name: 'Psychology', icon: 'User', slug: 'psychology' },
-  { id: '17', name: 'Cookbooks & Food', icon: 'ChefHat', slug: 'cookbooks-food' },
-  { id: '18', name: 'Travel & Adventure', icon: 'MapPin', slug: 'travel-adventure' },
+  { name: 'Biographies', icon: 'User', slug: 'biographies' },
+  { name: 'Business', icon: 'Briefcase', slug: 'business' },
+  { name: 'Children Fiction', icon: 'BookOpen', slug: 'children-fiction' },
+  { name: 'Young Adult Fiction', icon: 'BookOpen', slug: 'young-adult-fiction' },
+  { name: 'Adult Fiction', icon: 'BookOpen', slug: 'adult-fiction' },
+  { name: 'Technology', icon: 'Laptop', slug: 'technology' },
+  { name: 'Graphic Novels', icon: 'BookOpen', slug: 'graphic-novels' },
+  { name: 'Self Improvement', icon: 'User', slug: 'self-improvement' },
+  { name: 'Psychology', icon: 'User', slug: 'psychology' },
+  { name: 'Cookbooks', icon: 'ChefHat', slug: 'cookbooks' },
+  { name: 'Travel', icon: 'MapPin', slug: 'travel' },
 ];
 
 async function main() {
@@ -49,18 +43,13 @@ async function main() {
     let inserted = 0;
     for (const cat of categories) {
       const existing = await db.query.categories.findFirst({
-        where: eq(schema.categories.id, cat.id),
+        where: eq(schema.categories.slug, cat.slug),
       });
-      const existingByName = existing
-        ? existing
-        : await db.query.categories.findFirst({
-            where: eq(schema.categories.name, cat.name),
-          });
-      if (existingByName) {
+      if (existing) {
         continue;
       }
       await db.insert(schema.categories).values({
-        id: cat.id,
+        id: cat.id ?? randomUUID(),
         name: cat.name,
         icon: cat.icon,
         slug: cat.slug,

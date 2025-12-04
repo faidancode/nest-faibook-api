@@ -24,6 +24,7 @@ type UserRow = typeof schema.users.$inferSelect;
 type ReviewRow = typeof schema.reviews.$inferSelect;
 type BookWithAuthorName = BookRow & {
   authorName: string | null;
+  category: string | null;
   isWishlisted?: boolean;
   reviews?: ReviewWithUser[];
   averageRating?: number;
@@ -54,6 +55,7 @@ const bookWithAuthorSelection = {
   title: schema.books.title,
   slug: schema.books.slug,
   categoryId: schema.books.categoryId,
+  category: schema.categories.name,
   authorId: schema.books.authorId,
   isbn: schema.books.isbn,
   priceCents: schema.books.priceCents,
@@ -122,9 +124,10 @@ export class BooksService {
     const [row] = await this.db
       .select(bookWithAuthorSelection)
       .from(schema.books)
+      .leftJoin(schema.authors, eq(schema.books.authorId, schema.authors.id))
       .leftJoin(
-        schema.authors,
-        eq(schema.books.authorId, schema.authors.id),
+        schema.categories,
+        eq(schema.books.categoryId, schema.categories.id),
       )
       .where(
         and(
@@ -145,11 +148,10 @@ export class BooksService {
     const [row] = await this.db
       .select(bookWithAuthorSelection)
       .from(schema.books)
-      .leftJoin(
-        schema.authors,
-        eq(schema.books.authorId, schema.authors.id),
+      .leftJoin(schema.authors, eq(schema.books.authorId, schema.authors.id))
+      .where(
+        and(eq(schema.books.id, id), sql`${schema.books.deletedAt} IS NULL`),
       )
-      .where(and(eq(schema.books.id, id), sql`${schema.books.deletedAt} IS NULL`))
       .limit(1);
 
     if (!row) {
@@ -196,19 +198,31 @@ export class BooksService {
     return Boolean(row);
   }
 
-  private async evaluateReviewEligibility(bookId: string, userId: string | null) {
+  private async evaluateReviewEligibility(
+    bookId: string,
+    userId: string | null,
+  ) {
     if (!userId) {
-      return { eligible: false, reason: 'UNAUTHENTICATED' as ReviewEligibilityReason };
+      return {
+        eligible: false,
+        reason: 'UNAUTHENTICATED' as ReviewEligibilityReason,
+      };
     }
 
     const alreadyReviewed = await this.hasExistingReview(bookId, userId);
     if (alreadyReviewed) {
-      return { eligible: false, reason: 'ALREADY_REVIEWED' as ReviewEligibilityReason };
+      return {
+        eligible: false,
+        reason: 'ALREADY_REVIEWED' as ReviewEligibilityReason,
+      };
     }
 
     const hasPurchased = await this.hasCompletedPurchase(bookId, userId);
     if (!hasPurchased) {
-      return { eligible: false, reason: 'NOT_PURCHASED' as ReviewEligibilityReason };
+      return {
+        eligible: false,
+        reason: 'NOT_PURCHASED' as ReviewEligibilityReason,
+      };
     }
 
     return { eligible: true, reason: 'ELIGIBLE' as ReviewEligibilityReason };
@@ -301,9 +315,10 @@ export class BooksService {
       this.db
         .select(bookWithAuthorSelection)
         .from(schema.books)
+        .leftJoin(schema.authors, eq(schema.books.authorId, schema.authors.id))
         .leftJoin(
-          schema.authors,
-          eq(schema.books.authorId, schema.authors.id),
+          schema.categories,
+          eq(schema.books.categoryId, schema.categories.id),
         )
         .where(where)
         .orderBy(...orderBy)
@@ -331,13 +346,11 @@ export class BooksService {
       .select(bookWithAuthorSelection)
       .from(schema.books)
       .leftJoin(
-        schema.authors,
-        eq(schema.books.authorId, schema.authors.id),
+        schema.categories,
+        eq(schema.books.categoryId, schema.categories.id),
       )
-      .leftJoin(
-        schema.reviews,
-        eq(schema.books.id, schema.reviews.bookId),
-      )
+      .leftJoin(schema.authors, eq(schema.books.authorId, schema.authors.id))
+      .leftJoin(schema.reviews, eq(schema.books.id, schema.reviews.bookId))
       .where(
         and(eq(schema.books.id, id), sql`${schema.books.deletedAt} IS NULL`),
       )
@@ -411,8 +424,8 @@ export class BooksService {
         eligibility.reason === 'UNAUTHENTICATED'
           ? 'Authentication required'
           : eligibility.reason === 'NOT_PURCHASED'
-          ? 'You must complete a purchase of this book before reviewing'
-          : 'You have already reviewed this book';
+            ? 'You must complete a purchase of this book before reviewing'
+            : 'You have already reviewed this book';
       throw new BadRequestException(message);
     }
 
@@ -502,8 +515,11 @@ export class BooksService {
       .where(baseFilter)
       .groupBy(schema.reviews.rating);
 
-    const { counts: ratingCounts, averageRating, totalReviews } =
-      this.summarizeRatingCounts(ratingGroups);
+    const {
+      counts: ratingCounts,
+      averageRating,
+      totalReviews,
+    } = this.summarizeRatingCounts(ratingGroups);
 
     let reviewFilter = baseFilter;
     if (typeof query.rating === 'number') {
@@ -604,8 +620,11 @@ export class BooksService {
       .where(baseFilter)
       .groupBy(schema.reviews.rating);
 
-    const { counts: ratingCounts, averageRating, totalReviews } =
-      this.summarizeRatingCounts(ratingGroups);
+    const {
+      counts: ratingCounts,
+      averageRating,
+      totalReviews,
+    } = this.summarizeRatingCounts(ratingGroups);
 
     let reviewFilter = baseFilter;
     if (typeof query.rating === 'number') {
@@ -670,7 +689,9 @@ export class BooksService {
     const [row] = await this.db
       .select()
       .from(schema.users)
-      .where(and(eq(schema.users.id, id), sql`${schema.users.deletedAt} IS NULL`))
+      .where(
+        and(eq(schema.users.id, id), sql`${schema.users.deletedAt} IS NULL`),
+      )
       .limit(1);
 
     if (!row) {
@@ -719,8 +740,11 @@ export class BooksService {
       .where(baseFilter)
       .groupBy(schema.reviews.rating);
 
-    const { counts: ratingCounts, averageRating, totalReviews } =
-      this.summarizeRatingCounts(ratingGroups);
+    const {
+      counts: ratingCounts,
+      averageRating,
+      totalReviews,
+    } = this.summarizeRatingCounts(ratingGroups);
 
     let reviewFilter = baseFilter;
     if (typeof query.rating === 'number') {
@@ -871,13 +895,10 @@ export class BooksService {
   }
 
   private summarizeRatingCounts(rows: RatingAggregationRow[]) {
-    const counts = REVIEW_RATING_VALUES.reduce(
-      (acc, rating) => {
-        acc[rating] = 0;
-        return acc;
-      },
-      {} as RatingCounts,
-    );
+    const counts = REVIEW_RATING_VALUES.reduce((acc, rating) => {
+      acc[rating] = 0;
+      return acc;
+    }, {} as RatingCounts);
 
     for (const row of rows) {
       const ratingValue = row.rating as ReviewRatingValue;
@@ -888,7 +909,10 @@ export class BooksService {
       counts[ratingValue] = Number(row.count);
     }
 
-    const totalReviews = Object.values(counts).reduce((sum, value) => sum + value, 0);
+    const totalReviews = Object.values(counts).reduce(
+      (sum, value) => sum + value,
+      0,
+    );
     const ratingSum = REVIEW_RATING_VALUES.reduce(
       (sum, rating) => sum + rating * counts[rating],
       0,
@@ -935,11 +959,17 @@ export class BooksService {
       return 0;
     }
 
-    const total = reviews.reduce((sum, review) => sum + (review.rating ?? 0), 0);
+    const total = reviews.reduce(
+      (sum, review) => sum + (review.rating ?? 0),
+      0,
+    );
     return Number((total / reviews.length).toFixed(2));
   }
 
-  async update(id: string, input: UpdateBookInput): Promise<BookWithAuthorName> {
+  async update(
+    id: string,
+    input: UpdateBookInput,
+  ): Promise<BookWithAuthorName> {
     const existing = await this.findOne(id);
     const nextSlug =
       input.slug ??
