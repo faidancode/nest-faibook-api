@@ -12,7 +12,7 @@ export const EnvSchema = z.object({
     .transform((v) => parseInt(v, 10))
     .default(3000),
 
-  // Database
+  // DATABASE
   DB_HOST: z.string().min(1),
   DB_PORT: z
     .string()
