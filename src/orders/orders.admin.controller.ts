@@ -42,4 +42,9 @@ export class OrdersAdminController {
     const parsed = UpdatePaymentStatusSchema.parse(body);
     return this.ordersService.updatePaymentStatus(id, parsed);
   }
+
+  @Patch(':id/delivered')
+  async markDelivered(@Param('id') id: string) {
+    return this.ordersService.markShippedOrderAsDelivered(id);
+  }
 }

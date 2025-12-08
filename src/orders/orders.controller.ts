@@ -84,8 +84,10 @@ export class OrdersController {
     @Body() body: unknown,
     @Req() req: Request,
   ) {
-    const parsed = CustomerUpdateStatusSchema.parse(body);
+    const parsed = CustomerUpdateStatusSchema.parse(body ?? {});
     const currentUser = req.user as JwtPayload;
+    console.log('Req:', req);
+    console.log('Current User:', currentUser);
     return this.ordersService.updateCustomerStatus(
       id,
       currentUser.sub,

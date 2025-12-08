@@ -927,6 +927,23 @@ export class OrdersService {
     return this.getOrderDetails(orderId);
   }
 
+  async markShippedOrderAsDelivered(orderId: string): Promise<OrderOutput> {
+    const order = await this.findOrderRow(orderId);
+    if (order.status !== 'SHIPPED') {
+      throw new BadRequestException('Only shipped orders can be marked as delivered');
+    }
+
+    await this.db
+      .update(schema.orders)
+      .set({
+        status: 'DELIVERED',
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.orders.id, orderId));
+
+    return this.getOrderDetails(orderId);
+  }
+
   private async applyPaymentStatusTransition(
     order: OrderRow,
     input: UpdatePaymentStatusInput,

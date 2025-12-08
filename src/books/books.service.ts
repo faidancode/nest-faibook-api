@@ -149,6 +149,7 @@ export class BooksService {
       .select(bookWithAuthorSelection)
       .from(schema.books)
       .leftJoin(schema.authors, eq(schema.books.authorId, schema.authors.id))
+      .leftJoin(schema.categories, eq(schema.books.categoryId, schema.categories.id))
       .where(
         and(eq(schema.books.id, id), sql`${schema.books.deletedAt} IS NULL`),
       )

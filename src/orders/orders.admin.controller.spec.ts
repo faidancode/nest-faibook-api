@@ -14,6 +14,7 @@ describe('OrdersAdminController', () => {
       getOrderDetails: jest.fn(),
       updateAdminStatus: jest.fn(),
       updatePaymentStatus: jest.fn(),
+      markShippedOrderAsDelivered: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -89,5 +90,11 @@ describe('OrdersAdminController', () => {
     await controller.updatePaymentStatus('order-1', body);
 
     expect(service.updatePaymentStatus).toHaveBeenCalledWith('order-1', body);
+  });
+
+  it('exposes mark delivered operation', async () => {
+    await controller.markDelivered('order-123');
+
+    expect(service.markShippedOrderAsDelivered).toHaveBeenCalledWith('order-123');
   });
 });

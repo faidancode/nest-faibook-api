@@ -709,6 +709,39 @@ describe('OrdersService', () => {
     expect(db.update).not.toHaveBeenCalled();
   });
 
+  it('marks shipped orders as delivered', async () => {
+    const findOrderSpy = jest
+      .spyOn(service as any, 'findOrderRow')
+      .mockResolvedValue({ id: 'order-1', status: 'SHIPPED' });
+    const updateWhere = jest.fn().mockResolvedValue(undefined);
+    const updateSet = jest.fn().mockReturnValue({ where: updateWhere });
+    db.update.mockReturnValue({ set: updateSet });
+    const detailsSpy = jest
+      .spyOn(service, 'getOrderDetails')
+      .mockResolvedValue({} as OrderOutput);
+
+    await service.markShippedOrderAsDelivered('order-1');
+
+    expect(findOrderSpy).toHaveBeenCalledWith('order-1');
+    expect(updateSet).toHaveBeenCalledWith({
+      status: 'DELIVERED',
+      updatedAt: expect.any(Date),
+    });
+    expect(detailsSpy).toHaveBeenCalledWith('order-1');
+  });
+
+  it('rejects mark delivered call when order is not shipped', async () => {
+    jest.spyOn(service as any, 'findOrderRow').mockResolvedValue({
+      id: 'order-2',
+      status: 'PROCESSING',
+    });
+
+    await expect(
+      service.markShippedOrderAsDelivered('order-2'),
+    ).rejects.toThrow('Only shipped orders can be marked as delivered');
+    expect(db.update).not.toHaveBeenCalled();
+  });
+
   it('filters orders by status for user scoped listing', async () => {
     const orderRow = buildOrder({ id: 'order-filter', status: 'PAID' });
     const offset = jest.fn().mockResolvedValue([orderRow as any]);
