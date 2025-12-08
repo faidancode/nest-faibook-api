@@ -62,6 +62,14 @@ export class OrdersController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Post(':id/continue-payment')
+  async continuePayment(@Param('id') id: string, @Req() req: Request) {
+    const currentUser = req.user as JwtPayload;
+    const scopedUserId = currentUser.role === 'ADMIN' ? undefined : currentUser.sub;
+    return this.ordersService.createMidtransTransactionToken(id, scopedUserId);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post('checkout')
   @HttpCode(HttpStatus.CREATED)
   async checkout(

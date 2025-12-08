@@ -71,7 +71,7 @@ type CartWithItems = {
   }>;
 };
 
-type CheckoutPaymentPayload = {
+export type CheckoutPaymentPayload = {
   snapToken: string;
   redirectUrl?: string;
 };
@@ -679,6 +679,80 @@ export class OrdersService {
       email: customer?.email ?? null,
       phone: customer?.phone ?? null,
     });
+  }
+
+  private buildMidtransItems(order: OrderOutput) {
+    const items = order.items.map((item) => ({
+      id: item.bookId,
+      price: item.unitPriceCents,
+      quantity: item.quantity,
+      name: item.bookTitle.slice(0, 50),
+    }));
+
+    if (order.shippingCents > 0) {
+      items.push({
+        id: 'shipping-fee',
+        price: order.shippingCents,
+        quantity: 1,
+        name: 'Shipping Fee',
+      });
+    }
+
+    if (order.discountCents > 0) {
+      items.push({
+        id: 'discount',
+        price: -order.discountCents,
+        quantity: 1,
+        name: 'Discount',
+      });
+    }
+
+    return items;
+  }
+
+  async createMidtransTransactionToken(
+    orderId: string,
+    userId?: string,
+  ): Promise<CheckoutPaymentPayload> {
+    if (!this.midtransService) {
+      throw new BadRequestException('Midtrans integration is not configured');
+    }
+
+    const order = await this.getOrderDetails(orderId, userId);
+    if (order.paymentStatus !== 'UNPAID') {
+      throw new BadRequestException(
+        'Order payment cannot be retried unless it is still unpaid',
+      );
+    }
+
+    const customerProfile = await this.loadCustomerProfile(order.userId);
+    const addressName = this.splitFullName(
+      order.addressSnapshot.recipientName,
+    );
+
+    const customerDetails = {
+      firstName:
+        customerProfile.firstName ?? addressName.firstName ?? undefined,
+      lastName:
+        customerProfile.lastName ?? addressName.lastName ?? undefined,
+      email: order.customer?.email ?? undefined,
+      phone: order.customer?.phone ?? undefined,
+    };
+
+    const payload = {
+      orderId: order.orderNumber,
+      grossAmount: order.totalCents,
+      customer:
+        customerDetails.firstName ||
+        customerDetails.lastName ||
+        customerDetails.email ||
+        customerDetails.phone
+          ? customerDetails
+          : undefined,
+      items: this.buildMidtransItems(order),
+    };
+
+    return this.midtransService.createTransactionToken(payload);
   }
 
   async getOrderSummaryByOrderNumber(orderNumber: string): Promise<{
