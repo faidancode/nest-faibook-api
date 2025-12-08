@@ -366,6 +366,25 @@ export class OrdersService {
     return row;
   }
 
+  private async findOrderRowByOrderNumber(orderNumber: string): Promise<OrderRow> {
+    const where = and(
+      eq(schema.orders.orderNumber, orderNumber),
+      sql`${schema.orders.deletedAt} IS NULL`,
+    );
+
+    const [row] = await this.db
+      .select()
+      .from(schema.orders)
+      .where(where)
+      .limit(1);
+
+    if (!row) {
+      throw new NotFoundException('Order not found');
+    }
+
+    return row;
+  }
+
   private ensureStatus(
     current: OrderStatus,
     expected: OrderStatus,
@@ -662,6 +681,25 @@ export class OrdersService {
     });
   }
 
+  async getOrderSummaryByOrderNumber(orderNumber: string): Promise<{
+    orderId: string;
+    subtotalCents: number;
+    discountCents: number;
+    shippingCents: number;
+    totalCents: number;
+    paymentStatus: PaymentStatus;
+  }> {
+    const row = await this.findOrderRowByOrderNumber(orderNumber);
+    return {
+      orderId: row.id,
+      subtotalCents: row.subtotalCents,
+      discountCents: row.discountCents,
+      shippingCents: row.shippingCents,
+      totalCents: row.totalCents,
+      paymentStatus: row.paymentStatus as PaymentStatus,
+    };
+  }
+
   async getAllOrders(query: ListOrdersQuery): Promise<{
     items: OrderOutput[];
     meta: { page: number; pageSize: number; total: number; totalPages: number };
@@ -889,16 +927,15 @@ export class OrdersService {
     return this.getOrderDetails(orderId);
   }
 
-  async updatePaymentStatus(
-    orderId: string,
+  private async applyPaymentStatusTransition(
+    order: OrderRow,
     input: UpdatePaymentStatusInput,
   ): Promise<OrderOutput> {
-    const order = await this.findOrderRow(orderId);
     const currentStatus = order.paymentStatus as PaymentStatus;
     const nextStatus = input.paymentStatus;
 
     if (currentStatus === nextStatus) {
-      return this.getOrderDetails(orderId);
+      return this.getOrderDetails(order.id);
     }
 
     const allowed = paymentStatusTransitions[currentStatus] ?? [];
@@ -938,8 +975,24 @@ export class OrdersService {
     await this.db
       .update(schema.orders)
       .set(payload)
-      .where(eq(schema.orders.id, orderId));
+      .where(eq(schema.orders.id, order.id));
 
-    return this.getOrderDetails(orderId);
+    return this.getOrderDetails(order.id);
+  }
+
+  async updatePaymentStatus(
+    orderId: string,
+    input: UpdatePaymentStatusInput,
+  ): Promise<OrderOutput> {
+    const order = await this.findOrderRow(orderId);
+    return this.applyPaymentStatusTransition(order, input);
+  }
+
+  async updatePaymentStatusByOrderNumber(
+    orderNumber: string,
+    input: UpdatePaymentStatusInput,
+  ): Promise<OrderOutput> {
+    const order = await this.findOrderRowByOrderNumber(orderNumber);
+    return this.applyPaymentStatusTransition(order, input);
   }
 }

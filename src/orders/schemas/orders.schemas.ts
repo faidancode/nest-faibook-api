@@ -147,6 +147,16 @@ export const UpdatePaymentStatusSchema = z.object({
   note: z.string().max(255).optional(),
 });
 
+export const MidtransNotificationSchema = z.object({
+  transaction_status: z.string(),
+  transaction_time: z.string().optional(),
+  order_id: z.string(),
+  gross_amount: z.string(),
+  signature_key: z.string(),
+  status_code: z.string(),
+  fraud_status: z.string().optional(),
+});
+
 export type OrderItemOutput = z.infer<typeof OrderItemSchema>;
 export type OrderOutput = z.infer<typeof OrderSchema>;
 export type ListOrdersQuery = z.infer<typeof ListOrdersQuerySchema>;
@@ -159,6 +169,9 @@ export type CustomerUpdateStatusInput = z.infer<
 export type AdminUpdateStatusInput = z.infer<typeof AdminUpdateStatusSchema>;
 export type UpdatePaymentStatusInput = z.infer<
   typeof UpdatePaymentStatusSchema
+>;
+export type MidtransNotificationInput = z.infer<
+  typeof MidtransNotificationSchema
 >;
 export type OrderStatus = z.infer<typeof OrderStatusEnum>;
 export type PaymentStatus = z.infer<typeof PaymentStatusEnum>;

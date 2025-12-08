@@ -1,7 +1,7 @@
 import { createPool } from 'mysql2/promise';
 import { drizzle } from 'drizzle-orm/mysql2';
 import * as schema from '../infra/drizzle/schema';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { config as loadEnv } from 'dotenv';
 import { resolve } from 'path';
 import { randomUUID } from 'crypto';
@@ -11,19 +11,6 @@ function ensureEnvLoaded() {
   loadEnv({ path: resolve(cwd, '.env.local') });
   loadEnv({ path: resolve(cwd, '.env') });
 }
-
-const bookIds: string[] = [
-  '714bf4fa-df35-43ec-bf2c-5ad03f3b2573',
-  '592cab4a-78e4-4fc1-b452-20044287d15e',
-  'dd2f4c73-7a0f-4583-990b-26bafcdc32b9',
-  'a18c0f25-5abc-4475-859b-61853e41c360',
-  '53fcde4a-70d5-425f-a07b-2f718b42295e',
-  'b80725d6-ff78-4a5a-a138-a5f113e0e897',
-  'd47f5ece-dcde-4391-a869-b29e87e63e7a',
-  '24104144-66ab-476a-bfaa-b9a4721aebbd',
-  'eb333c4c-e238-499f-b0b8-aa904df12b1c',
-  'a03bf16b-7a7a-4415-bedb-5cc8255bb3a9',
-];
 
 const badReviewTemplates = [
   {
@@ -111,12 +98,22 @@ async function main() {
   const password = process.env.DB_PASSWORD as string;
   const database = process.env.DB_NAME || 'bookstore';
   if (!user) throw new Error('DB_USER is required');
-  if (bookIds.length === 0) {
-    throw new Error('No book IDs provided in bookIds.json');
-  }
 
   const pool = await createPool({ host, user, password, database });
   const db = drizzle(pool, { schema, mode: 'default' });
+
+  const books = await db
+    .select({ id: schema.books.id })
+    .from(schema.books)
+    .where(sql`${schema.books.deletedAt} IS NULL`);
+
+  if (books.length === 0) {
+    console.log('No books found. Skipping review seeding.');
+    await pool.end();
+    return;
+  }
+
+  const bookIds = books.map((book) => book.id);
 
   try {
     const customers = await db
@@ -191,6 +188,36 @@ async function main() {
         inserted += 1;
       }
     }
+
+    const ratingStats = await db
+      .select({
+        bookId: schema.reviews.bookId,
+        total: sql<number>`COUNT(*)`,
+        sum: sql<number>`COALESCE(SUM(${schema.reviews.rating}), 0)`,
+      })
+      .from(schema.reviews)
+      .where(inArray(schema.reviews.bookId, bookIds))
+      .groupBy(schema.reviews.bookId);
+
+    const ratingMap = new Map(ratingStats.map((row) => [row.bookId, row]));
+
+    await Promise.all(
+      books.map((book) => {
+        const stats = ratingMap.get(book.id);
+        const total = Number(stats?.total ?? 0);
+        const sum = Number(stats?.sum ?? 0);
+        const averageRating = total ? Number((sum / total).toFixed(2)) : 0;
+
+        return db
+          .update(schema.books)
+          .set({
+            ratingAvg: averageRating.toFixed(2),
+            ratingCount: total,
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.books.id, book.id));
+      }),
+    );
 
     console.log(
       `Reviews seeding done. Inserted: ${inserted}. Expected total: ${customers.length * bookIds.length}.`,
