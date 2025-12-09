@@ -246,10 +246,11 @@ export class WishlistsService {
 
     const items = await this.db
       .select({
-        id: schema.wishlistItems.id,
+        id: schema.wishlistItems.id,  
         wishlistId: schema.wishlistItems.wishlistId,
         bookId: schema.wishlistItems.bookId,
         book: {
+          id: schema.books.id,
           title: schema.books.title,
           coverUrl: schema.books.coverUrl,
           slug: schema.books.slug,

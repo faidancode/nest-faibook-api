@@ -87,8 +87,15 @@ export class WishlistsController {
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @HttpCode(HttpStatus.OK)
   async remove(@Param('id') id: string) {
-    return this.wishlistsService.remove(id);
+    await this.wishlistsService.remove(id);
+
+    return {
+      ok: true,
+      data: null,
+      meta: null,
+      error: null,
+    };
   }
 }
