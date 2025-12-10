@@ -37,6 +37,7 @@ type ReviewWithBook = ReviewRow & {
   bookTitle: string | null;
   bookSlug: string | null;
   bookCoverUrl: string | null;
+  bookAuthorName: string | null;
 };
 
 type RatingAggregationRow = {
@@ -190,7 +191,7 @@ export class BooksService {
         and(
           eq(schema.orders.userId, userId),
           eq(schema.orderItems.bookId, bookId),
-          eq(schema.orders.status, 'DELIVERED'),
+          eq(schema.orders.status, 'COMPLETED'),
           sql`${schema.orders.deletedAt} IS NULL`,
         ),
       )
@@ -769,9 +770,11 @@ export class BooksService {
           bookTitle: schema.books.title,
           bookSlug: schema.books.slug,
           bookCoverUrl: schema.books.coverUrl,
+          bookAuthorName: schema.authors.name,
         })
         .from(schema.reviews)
         .leftJoin(schema.books, eq(schema.reviews.bookId, schema.books.id))
+        .leftJoin(schema.authors, eq(schema.books.authorId, schema.authors.id))
         .where(reviewFilter)
         .orderBy(this.buildReviewOrder(query.sort ?? 'newest'))
         .limit(query.pageSize)

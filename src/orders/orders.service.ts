@@ -38,6 +38,7 @@ type OrderItemWithBook = OrderItemRow & {
   bookTitle?: string | null;
   bookAuthor?: string | null;
   bookCoverUrl?: string | null;
+  bookSlug?: string | null;
 };
 type AddressRow = typeof schema.addresses.$inferSelect;
 
@@ -164,6 +165,7 @@ export class OrdersService {
         bookTitle: item.bookTitle ?? item.titleSnapshot,
         bookAuthor: item.bookAuthor ?? null,
         bookCoverUrl: item.bookCoverUrl ?? null,
+        bookSlug: item.bookSlug ?? null,
         unitPriceCents: item.unitPriceCents,
         quantity: item.quantity,
         totalCents: item.totalCents,
@@ -660,6 +662,7 @@ export class OrdersService {
         bookTitle: schema.books.title,
         bookAuthor: schema.authors.name,
         bookCoverUrl: schema.books.coverUrl,
+        bookSlug: schema.books.slug,
       })
       .from(schema.orderItems)
       .leftJoin(schema.books, eq(schema.orderItems.bookId, schema.books.id))

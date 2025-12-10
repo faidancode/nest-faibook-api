@@ -33,6 +33,7 @@ export const OrderItemSchema = z.object({
   bookTitle: z.string(),
   bookAuthor: z.string().nullable(),
   bookCoverUrl: z.string().nullable(),
+  bookSlug: z.string().nullable(),
   unitPriceCents: z.number().int().nonnegative(),
   quantity: z.number().int().positive(),
   totalCents: z.number().int().nonnegative(),
