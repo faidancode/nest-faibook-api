@@ -52,16 +52,16 @@ export class AuthController {
 
       res.cookie('accessToken', accessToken, {
         httpOnly: true,
-        sameSite: 'lax',
-        secure: isProd,
+        secure: isProd, 
+        sameSite: isProd ? "none" : 'lax',
         maxAge: 15 * 60 * 1000,
         path: '/',
       });
 
       res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
-        sameSite: 'lax',
-        secure: isProd,
+        secure: isProd, 
+        sameSite: isProd ? "none" : 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000,
         path: '/',
       });
@@ -99,8 +99,8 @@ export class AuthController {
       // Access token cookie (boleh lebih pendek)
       res.cookie('accessToken', accessToken, {
         httpOnly: true,
-        sameSite: 'lax',
-        secure: isProd,
+        secure: isProd, 
+        sameSite: isProd ? "none" : 'lax',
         maxAge: 15 * 60 * 1000, // 15 menit
         path: '/',
       });
@@ -108,8 +108,8 @@ export class AuthController {
       // Refresh token cookie
       res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
-        sameSite: 'lax',
-        secure: isProd,
+        secure: isProd, 
+        sameSite: isProd ? "none" : 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 hari
         path: '/',
       });
@@ -162,8 +162,8 @@ export class AuthController {
       // Update accessToken cookie
       res.cookie('accessToken', accessToken, {
         httpOnly: true,
-        sameSite: 'lax',
-        secure: isProd,
+        secure: isProd, 
+        sameSite: isProd ? "none" : 'lax',
         maxAge: 15 * 60 * 1000,
         path: '/',
       });
