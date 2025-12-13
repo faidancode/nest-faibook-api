@@ -331,3 +331,20 @@ export const heroCarousel = mysqlTable(
     index('idx_hero_active_sort').on(table.isActive, table.sortOrder),
   ],
 );
+
+export const passwordResetTokens = mysqlTable(
+  'password_reset_tokens',
+  {
+    id: uuid('id').primaryKey(),
+    token: varchar('token', { length: 255 }).notNull().unique(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    expiresAt: datetime('expires_at').notNull(),
+    createdAt: timestamp('created_at').defaultNow(),
+  },
+  (table) => [
+      index('token_idx').on(table.token),
+      index('user_id_idx').on(table.userId),
+  ],
+);

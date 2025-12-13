@@ -32,3 +32,14 @@ export const JwtPayloadSchema = z.object({
 });
 
 export type JwtPayload = z.infer<typeof JwtPayloadSchema>;
+
+export const RequestPasswordResetSchema = z.object({
+  email: z.email(),
+});
+export type RequestPasswordResetInput = z.infer<typeof RequestPasswordResetSchema>;
+
+export const ResetPasswordSchema = z.object({
+  token: z.string().min(1),
+  newPassword: z.string().min(8), // Aturan password harus ketat
+});
+export type ResetPasswordInput = z.infer<typeof ResetPasswordSchema>;

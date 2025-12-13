@@ -53,6 +53,8 @@ export const EnvSchema = z.object({
     .transform((v) => parseInt(v, 10))
     .default(10),
 
+  WEBSTORE_URL:z.string().min(1),  
+
   // Cloudinary
   CLOUDINARY_CLOUD_NAME: z.string().min(1),
   CLOUDINARY_API_KEY: z.string().min(1),
@@ -65,6 +67,8 @@ export const EnvSchema = z.object({
     .transform((v) => v === 'true'),
   MIDTRANS_SERVER_KEY: z.string().min(1),
   MIDTRANS_CLIENT_KEY: z.string().min(1),
+
+  RESEND_API_KEY: z.string().min(1),
 
   // Swagger / OpenAPI
   ENABLE_SWAGGER: z

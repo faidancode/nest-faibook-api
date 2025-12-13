@@ -6,6 +6,7 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { RolesGuard } from './roles.guard';
 import { AppConfig } from '../config/app.config';
+import { EmailService } from 'src/email/email.service';
 
 @Module({
   imports: [
@@ -21,8 +22,8 @@ import { AppConfig } from '../config/app.config';
       },
     }),
   ],
-  providers: [AuthService, JwtStrategy, RolesGuard],
+  providers: [AuthService, JwtStrategy, RolesGuard, EmailService],
   controllers: [AuthController],
-  exports: [AuthService, JwtStrategy, RolesGuard],
+  exports: [AuthService, JwtStrategy, RolesGuard, EmailService],
 })
 export class AuthModule {}
