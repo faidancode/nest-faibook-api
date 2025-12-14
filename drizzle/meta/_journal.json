@@ -5,15 +5,8 @@
     {
       "idx": 0,
       "version": "5",
-      "when": 1763521350982,
-      "tag": "0000_exotic_grim_reaper",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "5",
-      "when": 1765524245597,
-      "tag": "0001_elite_may_parker",
+      "when": 1765726301613,
+      "tag": "0000_talented_genesis",
       "breakpoints": true
     }
   ]

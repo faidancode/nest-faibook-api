@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm';
+import { date } from 'drizzle-orm/mysql-core';
 import {
   varchar,
   int,
@@ -131,7 +132,7 @@ export const books = mysqlTable(
     pages: int('pages'),
     language: varchar('language', { length: 40 }),
     publisher: varchar('publisher', { length: 160 }),
-    publishedAt: datetime('publishedAt'),
+    publishedAt: date('publishedAt'),
     ratingAvg: decimal('ratingAvg', { precision: 3, scale: 2 })
       .notNull()
       .default('0.00'),

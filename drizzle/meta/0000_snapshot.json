@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "7d20c402-874e-4dc2-a354-7bd8e9e60d68",
+  "id": "6ea1fccb-861a-4eb4-b9ea-d1da6ef62543",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "addresses": {
@@ -339,7 +339,7 @@
         },
         "publishedAt": {
           "name": "publishedAt",
-          "type": "datetime",
+          "type": "date",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
@@ -519,8 +519,8 @@
         }
       },
       "indexes": {
-        "uniq_cart_product": {
-          "name": "uniq_cart_product",
+        "uniq_cart_book": {
+          "name": "uniq_cart_book",
           "columns": [
             "cartId",
             "bookId"
@@ -1160,6 +1160,95 @@
       },
       "checkConstraint": {}
     },
+    "password_reset_tokens": {
+      "name": "password_reset_tokens",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(36)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "token": {
+          "name": "token",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "varchar(36)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "datetime",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(now())"
+        }
+      },
+      "indexes": {
+        "token_idx": {
+          "name": "token_idx",
+          "columns": [
+            "token"
+          ],
+          "isUnique": false
+        },
+        "user_id_idx": {
+          "name": "user_id_idx",
+          "columns": [
+            "user_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "password_reset_tokens_user_id_users_id_fk": {
+          "name": "password_reset_tokens_user_id_users_id_fk",
+          "tableFrom": "password_reset_tokens",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "password_reset_tokens_id": {
+          "name": "password_reset_tokens_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "password_reset_tokens_token_unique": {
+          "name": "password_reset_tokens_token_unique",
+          "columns": [
+            "token"
+          ]
+        }
+      },
+      "checkConstraint": {}
+    },
     "reviews": {
       "name": "reviews",
       "columns": {
@@ -1230,16 +1319,16 @@
         }
       },
       "indexes": {
-        "uniq_reviews_user_product": {
-          "name": "uniq_reviews_user_product",
+        "uniq_reviews_user_book": {
+          "name": "uniq_reviews_user_book",
           "columns": [
             "userId",
             "bookId"
           ],
           "isUnique": true
         },
-        "idx_reviews_product_rating": {
-          "name": "idx_reviews_product_rating",
+        "idx_reviews_book_rating": {
+          "name": "idx_reviews_book_rating",
           "columns": [
             "bookId",
             "rating"
@@ -1419,8 +1508,8 @@
         }
       },
       "indexes": {
-        "uniq_wishlist_product": {
-          "name": "uniq_wishlist_product",
+        "uniq_wishlist_book": {
+          "name": "uniq_wishlist_book",
           "columns": [
             "wishlistId",
             "bookId"

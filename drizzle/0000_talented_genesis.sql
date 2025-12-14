@@ -44,7 +44,7 @@ CREATE TABLE `books` (
 	`pages` int,
 	`language` varchar(40),
 	`publisher` varchar(160),
-	`publishedAt` datetime,
+	`publishedAt` date,
 	`ratingAvg` decimal(3,2) NOT NULL DEFAULT '0.00',
 	`ratingCount` int NOT NULL DEFAULT 0,
 	`isActive` boolean NOT NULL DEFAULT true,
@@ -64,7 +64,7 @@ CREATE TABLE `cart_items` (
 	`createdAt` timestamp NOT NULL DEFAULT (now()),
 	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
 	CONSTRAINT `cart_items_id` PRIMARY KEY(`id`),
-	CONSTRAINT `uniq_cart_product` UNIQUE(`cartId`,`bookId`)
+	CONSTRAINT `uniq_cart_book` UNIQUE(`cartId`,`bookId`)
 );
 --> statement-breakpoint
 CREATE TABLE `carts` (
@@ -143,6 +143,16 @@ CREATE TABLE `orders` (
 	CONSTRAINT `orders_receipt_no_unique` UNIQUE(`receipt_no`)
 );
 --> statement-breakpoint
+CREATE TABLE `password_reset_tokens` (
+	`id` varchar(36) NOT NULL,
+	`token` varchar(255) NOT NULL,
+	`user_id` varchar(36) NOT NULL,
+	`expires_at` datetime NOT NULL,
+	`created_at` timestamp DEFAULT (now()),
+	CONSTRAINT `password_reset_tokens_id` PRIMARY KEY(`id`),
+	CONSTRAINT `password_reset_tokens_token_unique` UNIQUE(`token`)
+);
+--> statement-breakpoint
 CREATE TABLE `reviews` (
 	`id` varchar(36) NOT NULL,
 	`userId` varchar(36) NOT NULL,
@@ -154,7 +164,7 @@ CREATE TABLE `reviews` (
 	`updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 	`deletedAt` datetime,
 	CONSTRAINT `reviews_id` PRIMARY KEY(`id`),
-	CONSTRAINT `uniq_reviews_user_product` UNIQUE(`userId`,`bookId`)
+	CONSTRAINT `uniq_reviews_user_book` UNIQUE(`userId`,`bookId`)
 );
 --> statement-breakpoint
 CREATE TABLE `users` (
@@ -178,7 +188,7 @@ CREATE TABLE `wishlist_items` (
 	`createdAt` timestamp NOT NULL DEFAULT (now()),
 	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
 	CONSTRAINT `wishlist_items_id` PRIMARY KEY(`id`),
-	CONSTRAINT `uniq_wishlist_product` UNIQUE(`wishlistId`,`bookId`)
+	CONSTRAINT `uniq_wishlist_book` UNIQUE(`wishlistId`,`bookId`)
 );
 --> statement-breakpoint
 CREATE TABLE `wishlists` (
@@ -199,6 +209,7 @@ ALTER TABLE `carts` ADD CONSTRAINT `carts_userId_users_id_fk` FOREIGN KEY (`user
 ALTER TABLE `order_items` ADD CONSTRAINT `order_items_orderId_orders_id_fk` FOREIGN KEY (`orderId`) REFERENCES `orders`(`id`) ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `order_items` ADD CONSTRAINT `order_items_bookId_books_id_fk` FOREIGN KEY (`bookId`) REFERENCES `books`(`id`) ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `orders` ADD CONSTRAINT `orders_userId_users_id_fk` FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE `password_reset_tokens` ADD CONSTRAINT `password_reset_tokens_user_id_users_id_fk` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `reviews` ADD CONSTRAINT `reviews_userId_users_id_fk` FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `reviews` ADD CONSTRAINT `reviews_bookId_books_id_fk` FOREIGN KEY (`bookId`) REFERENCES `books`(`id`) ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `wishlist_items` ADD CONSTRAINT `wishlist_items_wishlistId_wishlists_id_fk` FOREIGN KEY (`wishlistId`) REFERENCES `wishlists`(`id`) ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -214,4 +225,6 @@ CREATE INDEX `idx_hero_active_sort` ON `hero_carousel` (`isActive`,`sortOrder`);
 CREATE INDEX `idx_order_items_order` ON `order_items` (`orderId`);--> statement-breakpoint
 CREATE INDEX `idx_orders_user_status` ON `orders` (`userId`,`status`);--> statement-breakpoint
 CREATE INDEX `idx_orders_placedAt` ON `orders` (`placedAt`);--> statement-breakpoint
-CREATE INDEX `idx_reviews_product_rating` ON `reviews` (`bookId`,`rating`);
+CREATE INDEX `token_idx` ON `password_reset_tokens` (`token`);--> statement-breakpoint
+CREATE INDEX `user_id_idx` ON `password_reset_tokens` (`user_id`);--> statement-breakpoint
+CREATE INDEX `idx_reviews_book_rating` ON `reviews` (`bookId`,`rating`);
