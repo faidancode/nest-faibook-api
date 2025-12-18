@@ -19,7 +19,7 @@ export class EmailService {
     }
     this.resend = new Resend(apiKey);
     // Ganti dengan email pengirim terverifikasi Anda
-    this.fromEmail = 'noreply@yourbookstore.com'; 
+    this.fromEmail = 'noreply@faidancode.web.id'; 
   }  
 
   // Metode untuk mengirim Email Reset Password
