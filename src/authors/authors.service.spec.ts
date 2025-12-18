@@ -90,7 +90,10 @@ describe('AuthorsService', () => {
       .mockReturnValueOnce(createSelectBuilder(rows))
       .mockReturnValueOnce(createCountBuilder(0));
 
-    const buildWhereSpy = jest.spyOn<any>(service as any, 'buildWhere');
+    const buildWhereSpy = jest.spyOn(
+      AuthorsService.prototype as any,
+      'buildWhere',
+    );
 
     await service.findAll({
       page: 1,
@@ -107,9 +110,7 @@ describe('AuthorsService', () => {
   it('throws when author not found', async () => {
     db.select.mockReturnValueOnce(createFindOneBuilder([]));
 
-    await expect(service.findOne('missing')).rejects.toThrow(
-      NotFoundException,
-    );
+    await expect(service.findOne('missing')).rejects.toThrow(NotFoundException);
   });
 
   it('creates an author and derives slug from name when missing', async () => {
@@ -118,7 +119,11 @@ describe('AuthorsService', () => {
     db.select.mockReturnValueOnce(createFindOneBuilder([]));
     const findOneSpy = jest
       .spyOn(service, 'findOne')
-      .mockResolvedValue({ id: 'a1', name: 'John Doe', slug: 'john-doe' } as any);
+      .mockResolvedValue({
+        id: 'a1',
+        name: 'John Doe',
+        slug: 'john-doe',
+      } as any);
 
     const created = await service.create({
       name: 'John Doe',

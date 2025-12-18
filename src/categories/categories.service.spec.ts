@@ -95,7 +95,10 @@ describe('CategoriesService', () => {
       .mockReturnValueOnce(createSelectBuilder(rows))
       .mockReturnValueOnce(createCountBuilder(0));
 
-    const buildWhereSpy = jest.spyOn<any>(service as any, 'buildWhere');
+    const buildWhereSpy = jest.spyOn(
+      CategoriesService.prototype as any,
+      'buildWhere',
+    );
 
     await service.findAll({
       page: 1,
@@ -112,9 +115,7 @@ describe('CategoriesService', () => {
   it('throws when category not found', async () => {
     db.select.mockReturnValueOnce(createFindOneBuilder([]));
 
-    await expect(service.findOne('missing')).rejects.toThrow(
-      NotFoundException,
-    );
+    await expect(service.findOne('missing')).rejects.toThrow(NotFoundException);
   });
 
   it('creates a category and derives slug from name when missing', async () => {

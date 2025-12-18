@@ -2,7 +2,11 @@ import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { OrdersService } from './orders.service';
 import { ORDERS_PAYMENT } from './orders.payment';
-import type { OrderOutput } from './schemas/orders.schemas';
+import type {
+  OrderOutput,
+  AddressSnapshot,
+  OrderItemOutput,
+} from './schemas/orders.schemas';
 import { MidtransService } from '../midtrans/midtrans.service';
 import * as schema from '../infra/drizzle/schema';
 
@@ -44,7 +48,7 @@ const createAdminCountBuilder = (total: number) => ({
 
 const baseDate = new Date();
 const buildOrder = (overrides: Partial<OrderOutput> = {}): OrderOutput => {
-  const defaultAddress = {
+  const defaultAddress: AddressSnapshot = {
     id: 'addr-1',
     label: 'Home',
     recipientName: 'John Doe',
@@ -57,12 +61,16 @@ const buildOrder = (overrides: Partial<OrderOutput> = {}): OrderOutput => {
     postalCode: null,
   };
 
-  const defaultItems = [
+  const defaultItems: OrderItemOutput[] = [
     {
       id: 'oi-1',
       orderId: overrides.id ?? 'order-1',
       bookId: 'book-1',
       titleSnapshot: 'Sample Book',
+      bookTitle: 'Sample Book',
+      bookAuthor: 'John Doe',
+      bookCoverUrl: 'https://placehold.co/400',
+      bookSlug: 'sample-book',
       unitPriceCents: 1000,
       quantity: 1,
       totalCents: 1000,
@@ -78,7 +86,6 @@ const buildOrder = (overrides: Partial<OrderOutput> = {}): OrderOutput => {
     status: 'PENDING',
     paymentMethod: 'VA',
     paymentStatus: 'UNPAID',
-    addressSnapshot: defaultAddress,
     subtotalCents: 1000,
     discountCents: 0,
     shippingCents: 0,
@@ -92,7 +99,6 @@ const buildOrder = (overrides: Partial<OrderOutput> = {}): OrderOutput => {
     createdAt: baseDate,
     updatedAt: baseDate,
     deletedAt: null,
-    items: defaultItems,
     ...overrides,
     addressSnapshot: overrides.addressSnapshot ?? defaultAddress,
     items: overrides.items ?? defaultItems,
@@ -219,6 +225,10 @@ describe('OrdersService', () => {
           orderId: 'order-1',
           bookId: 'book-1',
           titleSnapshot: 'First Book',
+          bookTitle: 'First Book',
+          bookAuthor: 'Author One',
+          bookCoverUrl: 'https://placehold.co/400',
+          bookSlug: 'first-book',
           unitPriceCents: 2000,
           quantity: 2,
           totalCents: 4000,
@@ -282,6 +292,7 @@ describe('OrdersService', () => {
       discountCents: 200,
       shippingCents: 500,
       note: 'Catatan',
+      initialStatus: 'PENDING' as const,
     };
 
     const result = await service.checkout(input, {
@@ -387,6 +398,9 @@ describe('OrdersService', () => {
         userId: 'user-1',
         addressId: 'addr-1',
         paymentMethod: 'VA',
+        shippingCents: 0,
+        discountCents: 0,
+        initialStatus: 'PENDING',
       }),
     ).rejects.toThrow('Cart is empty');
 
@@ -411,6 +425,9 @@ describe('OrdersService', () => {
         userId: 'user-1',
         addressId: 'addr-1',
         paymentMethod: 'VA',
+        shippingCents: 0,
+        discountCents: 0,
+        initialStatus: 'PENDING',
       }),
     ).rejects.toThrow('invalid product');
 
@@ -451,6 +468,9 @@ describe('OrdersService', () => {
         userId: 'user-1',
         addressId: 'addr-1',
         paymentMethod: 'VA',
+        shippingCents: 0,
+        discountCents: 0,
+        initialStatus: 'PENDING',
       }),
     ).rejects.toThrow(/Insufficient stock/);
 
@@ -491,6 +511,9 @@ describe('OrdersService', () => {
         userId: 'user-1',
         addressId: 'addr-1',
         paymentMethod: 'VA',
+        shippingCents: 0,
+        discountCents: 0,
+        initialStatus: 'PENDING',
       }),
     ).rejects.toThrow('snap-failed');
 
@@ -539,6 +562,9 @@ describe('OrdersService', () => {
         userId: 'user-1',
         addressId: 'addr-1',
         paymentMethod: 'VA',
+        shippingCents: 0,
+        discountCents: 0,
+        initialStatus: 'PENDING',
       }),
     ).rejects.toThrow('insert-failed');
 
@@ -591,7 +617,14 @@ describe('OrdersService', () => {
       .mockResolvedValue(finalOrder);
 
     await service.checkout(
-      { userId: 'user-1', addressId: 'addr-1', paymentMethod: 'VA' },
+      {
+        userId: 'user-1',
+        addressId: 'addr-1',
+        paymentMethod: 'VA',
+        shippingCents: 0,
+        discountCents: 0,
+        initialStatus: 'PENDING',
+      },
       { idempotencyKey: 'KEY-1' },
     );
 
@@ -599,7 +632,14 @@ describe('OrdersService', () => {
     fetchCartSpy.mockClear();
 
     const secondResult = await service.checkout(
-      { userId: 'user-1', addressId: 'addr-1', paymentMethod: 'VA' },
+      {
+        userId: 'user-1',
+        addressId: 'addr-1',
+        paymentMethod: 'VA',
+        shippingCents: 0,
+        discountCents: 0,
+        initialStatus: 'PENDING',
+      },
       { idempotencyKey: 'KEY-1' },
     );
 
@@ -652,6 +692,8 @@ describe('OrdersService', () => {
         userId: 'user-1',
         addressId: 'addr-1',
         paymentMethod: 'VA',
+        shippingCents: 0,
+        discountCents: 0,
         initialStatus: 'PAID',
       },
       {},

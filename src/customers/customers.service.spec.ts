@@ -72,7 +72,13 @@ describe('CustomersService', () => {
 
   it('lists customers with pagination metadata', async () => {
     const rows = [
-      { id: 'cust-1', name: 'Alice', email: 'a@example.com', role: 'CUSTOMER', createdAt: new Date() },
+      {
+        id: 'cust-1',
+        name: 'Alice',
+        email: 'a@example.com',
+        role: 'CUSTOMER',
+        createdAt: new Date(),
+      },
     ];
 
     db.select
@@ -98,7 +104,10 @@ describe('CustomersService', () => {
       .mockReturnValueOnce(createListBuilder([]))
       .mockReturnValueOnce(createCountBuilder(0));
 
-    const buildWhereSpy = jest.spyOn<any>(service as any, 'buildWhere');
+    const buildWhereSpy = jest.spyOn(
+      CustomersService.prototype as any,
+      'buildWhere',
+    );
 
     await service.listCustomers({
       page: 1,
