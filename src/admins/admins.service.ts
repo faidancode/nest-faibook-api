@@ -5,14 +5,36 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { MySql2Database } from 'drizzle-orm/mysql2';
-import { and, asc, desc, eq, like, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull, like, sql } from 'drizzle-orm';
 import * as schema from '../infra/drizzle/schema';
-import type { CreateAdminInput, ListAdminQuery } from './admins.schemas';
+import type {
+  CreateAdminInput,
+  ListAdminQuery,
+  UpdateAdminInput,
+} from './admins.schemas';
 import { randomUUID } from 'crypto';
 import * as bcrypt from 'bcrypt';
 
 type Db = MySql2Database<typeof schema>;
 type UserRow = typeof schema.users.$inferSelect;
+
+export const userPublicColumns = {
+  id: schema.users.id,
+  name: schema.users.name,
+  email: schema.users.email,
+  phone: schema.users.phone,
+  role: schema.users.role,
+  isActive: schema.users.isActive,
+  createdAt: schema.users.createdAt,
+  updatedAt: schema.users.updatedAt,
+  deletedAt: schema.users.deletedAt,
+};
+
+// Type helper
+export type UserResponse = Omit<
+  typeof schema.users.$inferSelect,
+  'passwordHash'
+>;
 
 @Injectable()
 export class AdminsService {
@@ -52,7 +74,14 @@ export class AdminsService {
 
     const [items, [{ total }]] = await Promise.all([
       this.db
-        .select()
+        .select({
+          id: schema.users.id,
+          name: schema.users.name,
+          email: schema.users.email,
+          role: schema.users.role,
+          createdAt: schema.users.createdAt,
+          // passwordHash tidak disertakan di sini
+        })
         .from(schema.users)
         .where(where)
         .orderBy(orderBy)
@@ -75,23 +104,21 @@ export class AdminsService {
     };
   }
 
-  async findOne(id: string): Promise<UserRow> {
+  async findOne(id: string): Promise<UserResponse> {
     const [row] = await this.db
-      .select()
+      .select(userPublicColumns) // Membatasi kolom di tingkat DB
       .from(schema.users)
-      .where(
-        and(eq(schema.users.id, id), sql`${schema.users.deletedAt} IS NULL`),
-      )
+      .where(and(eq(schema.users.id, id), isNull(schema.users.deletedAt)))
       .limit(1);
 
     if (!row) {
       throw new NotFoundException('Admin not found');
     }
 
-    return row;
+    return row as UserResponse; // Casting untuk memastikan TS tidak komplain
   }
 
-  async create(input: CreateAdminInput): Promise<UserRow> {
+  async create(input: CreateAdminInput): Promise<UserResponse> {
     const [existing] = await this.db
       .select()
       .from(schema.users)
@@ -118,7 +145,7 @@ export class AdminsService {
         })
         .where(eq(schema.users.id, existing.id));
 
-      return this.findOne(existing.id);
+      return this.findOne(existing.id); // findOne sudah aman (tanpa password)
     }
 
     const id = randomUUID();
@@ -133,7 +160,36 @@ export class AdminsService {
       isActive: true,
     });
 
-    return this.findOne(id);
+    return this.findOne(id); // findOne sudah aman (tanpa password)
+  }
+
+  async update(id: string, input: UpdateAdminInput): Promise<UserResponse> {
+    const [existing] = await this.db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.id, id))
+      .limit(1);
+
+    if (!existing || existing.deletedAt) {
+      throw new NotFoundException('Admin not found');
+    }
+
+    const updateData: Partial<typeof schema.users.$inferInsert> = {
+      name: input.name,
+      phone: input.phone ?? null,
+    };
+
+    // ✅ hanya update password jika dikirim
+    if (input.password) {
+      updateData.passwordHash = await bcrypt.hash(input.password, 10);
+    }
+
+    await this.db
+      .update(schema.users)
+      .set(updateData)
+      .where(eq(schema.users.id, id));
+
+    return this.findOne(id); // tetap aman, tanpa password
   }
 
   async remove(id: string): Promise<void> {
@@ -144,6 +200,4 @@ export class AdminsService {
       .set({ deletedAt: new Date() })
       .where(eq(schema.users.id, id));
   }
-
-  
 }

@@ -265,16 +265,14 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async me(@Req() req: Request & { user: JwtPayload }) {
     const result = await this.authService.getMe(req.user.sub);
-    console.log({ req });
-    console.log({ result });
     return ok(result);
   }
 
   @Post('request-password-reset')
   @HttpCode(HttpStatus.OK)
   async requestPasswordReset(
-    @Body(new ZodValidationPipe(RequestPasswordResetSchema)) 
-    parsed: RequestPasswordResetInput
+    @Body(new ZodValidationPipe(RequestPasswordResetSchema))
+    parsed: RequestPasswordResetInput,
   ) {
     const { email } = parsed;
     const user = await this.authService.getCustomerByEmail(email);
@@ -293,7 +291,11 @@ export class AuthController {
       const resetUrl = `${BASE_URL}/reset-password?token=${result.resetToken}`;
 
       // Panggil service email Anda di sini:
-      await this.emailService.sendResetPasswordEmail(parsed.email, resetUrl,name);
+      await this.emailService.sendResetPasswordEmail(
+        parsed.email,
+        resetUrl,
+        name,
+      );
     }
 
     // Keamanan: Selalu berikan respons OK yang generik kepada pengguna

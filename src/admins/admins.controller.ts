@@ -6,12 +6,17 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
 import { AdminsService } from './admins.service';
-import { CreateAdminSchema, ListAdminQuerySchema } from './admins.schemas';
+import {
+  CreateAdminSchema,
+  ListAdminQuerySchema,
+  UpdateAdminSchema,
+} from './admins.schemas';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { JwtAuthGuard } from '../auth/jwt.guard';
@@ -38,6 +43,14 @@ export class AdminsController {
   @Get(':id')
   async detail(@Param('id') id: string) {
     return this.adminsService.findOne(id);
+  }
+
+  // body unknown, tidak percaya input client. Validasi 100% lewat Zod.
+  @Patch(':id')
+  async update(@Param('id') id: string, @Body() body: unknown) {
+    const parsed = UpdateAdminSchema.parse(body);
+    const updated = await this.adminsService.update(id, parsed);
+    return updated;
   }
 
   @Delete(':id')
