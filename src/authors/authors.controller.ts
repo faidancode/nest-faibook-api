@@ -39,7 +39,7 @@ export class AuthorsController {
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Roles('SUPERADMIN','ADMIN')
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() body: unknown) {
     const parsed = CreateAuthorSchema.parse(body);
@@ -48,7 +48,7 @@ export class AuthorsController {
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Roles('SUPERADMIN','ADMIN')
   async update(@Param('id') id: string, @Body() body: unknown) {
     const parsed = UpdateAuthorSchema.parse(body);
     return this.authorsService.update(id, parsed);
@@ -62,7 +62,7 @@ export class AuthorsController {
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Roles('SUPERADMIN','ADMIN')
   @HttpCode(HttpStatus.OK)
   async remove(@Param('id') id: string) {
     await this.authorsService.remove(id);

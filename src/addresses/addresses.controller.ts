@@ -51,7 +51,7 @@ export class AddressesController {
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Roles('SUPERADMIN','ADMIN')
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() body: unknown) {
     const parsed = CreateAddressSchema.parse(body);
@@ -68,7 +68,7 @@ export class AddressesController {
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Roles('SUPERADMIN','ADMIN')
   async update(@Param('id') id: string, @Body() body: unknown) {
     const parsed = UpdateAddressSchema.parse(body);
     return this.addressesService.update(id, parsed);

@@ -28,7 +28,7 @@ export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   private assertUserAccess(user: JwtPayload, requestedUserId: string) {
-    if (user.role === 'ADMIN') {
+    if (user.role === 'ADMIN' || user.role === 'SUPERADMIN') {
       return;
     }
 
@@ -57,7 +57,7 @@ export class OrdersController {
   @Get(':id')
   async getDetails(@Param('id') id: string, @Req() req: Request) {
     const currentUser = req.user as JwtPayload;
-    const scopedUserId = currentUser.role === 'ADMIN' ? undefined : currentUser.sub;
+    const scopedUserId = currentUser.role === 'ADMIN' || currentUser.role === 'SUPERADMIN' ? undefined : currentUser.sub;
     return this.ordersService.getOrderDetails(id, scopedUserId);
   }
 
@@ -65,7 +65,7 @@ export class OrdersController {
   @Post(':id/continue-payment')
   async continuePayment(@Param('id') id: string, @Req() req: Request) {
     const currentUser = req.user as JwtPayload;
-    const scopedUserId = currentUser.role === 'ADMIN' ? undefined : currentUser.sub;
+    const scopedUserId = currentUser.role === 'ADMIN' || currentUser.role === 'SUPERADMIN' ? undefined : currentUser.sub;
     return this.ordersService.createMidtransTransactionToken(id, scopedUserId);
   }
 

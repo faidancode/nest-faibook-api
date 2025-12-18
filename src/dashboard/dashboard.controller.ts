@@ -14,7 +14,7 @@ import {
 
 @Controller('v1/admin/dashboard')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN')
+@Roles('SUPERADMIN','ADMIN')
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 

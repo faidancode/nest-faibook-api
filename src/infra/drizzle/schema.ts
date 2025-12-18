@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { date } from 'drizzle-orm/mysql-core';
+import { mysqlEnum } from 'drizzle-orm/mysql-core';
 import {
   varchar,
   int,
@@ -42,7 +43,8 @@ export const users = mysqlTable('users', {
   email: varchar('email', { length: 160 }).notNull().unique(),
   phone: varchar('phone', { length: 30 }),
   passwordHash: varchar('passwordHash', { length: 255 }).notNull(),
-  role: varchar('role', { length: 16 }).notNull().default('CUSTOMER'),
+  isActive: boolean('isActive').notNull().default(true),
+  role: mysqlEnum("role", ["SUPERADMIN", "ADMIN", "CUSTOMER"]).notNull(),
 
   ...timestamps,
 });

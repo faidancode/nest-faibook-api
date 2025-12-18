@@ -48,7 +48,7 @@ export class BooksController {
 
   @Get('admin/:id/reviews')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Roles('SUPERADMIN','ADMIN')
   async getReviewsByBookId(@Param('id') id: string, @Query() query: unknown) {
     const parsed = ListBookReviewsQuerySchema.parse(query);
     return this.booksService.getReviewsByBookId(id, parsed);
@@ -121,7 +121,7 @@ export class BooksController {
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Roles('SUPERADMIN','ADMIN')
   @HttpCode(HttpStatus.CREATED)
   @UseInterceptors(FileInterceptor('coverUrl'))
   async create(
@@ -151,7 +151,7 @@ export class BooksController {
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Roles('SUPERADMIN','ADMIN')
   async update(@Param('id') id: string, @Body() body: unknown) {
     const parsed = UpdateBookSchema.parse(body);
     return this.booksService.update(id, parsed);
@@ -159,7 +159,7 @@ export class BooksController {
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Roles('SUPERADMIN','ADMIN')
   @HttpCode(HttpStatus.OK)
   async remove(@Param('id') id: string) {
     await this.booksService.remove(id);

@@ -22,6 +22,7 @@ import { CustomersModule } from './customers/customers.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { AuthorsModule } from './authors/authors.module';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
+import { AdminModule } from './admins/admins.module';
 
 @Module({
   imports: [
@@ -44,7 +45,8 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
     MidtransModule,
     CustomersModule,
     DashboardModule,
-    CloudinaryModule
+    CloudinaryModule,
+    AdminModule,
   ],
   providers: [
     RateLimitService,

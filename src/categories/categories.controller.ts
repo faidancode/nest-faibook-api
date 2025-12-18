@@ -42,7 +42,7 @@ export class CategoriesController {
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Roles('SUPERADMIN','ADMIN')
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() body: unknown) {
     const parsed = CreateCategorySchema.parse(body);
@@ -52,7 +52,7 @@ export class CategoriesController {
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Roles('SUPERADMIN','ADMIN')
   async update(@Param('id') id: string, @Body() body: unknown) {
     const parsed = UpdateCategorySchema.parse(body);
     const updated = await this.categoriesService.update(id, parsed);
@@ -67,7 +67,7 @@ export class CategoriesController {
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Roles('SUPERADMIN','ADMIN')
   @HttpCode(HttpStatus.OK)
   async remove(@Param('id') id: string) {
     await this.categoriesService.remove(id);
