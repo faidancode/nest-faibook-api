@@ -150,7 +150,10 @@ export class BooksService {
       .select(bookWithAuthorSelection)
       .from(schema.books)
       .leftJoin(schema.authors, eq(schema.books.authorId, schema.authors.id))
-      .leftJoin(schema.categories, eq(schema.books.categoryId, schema.categories.id))
+      .leftJoin(
+        schema.categories,
+        eq(schema.books.categoryId, schema.categories.id),
+      )
       .where(
         and(eq(schema.books.id, id), sql`${schema.books.deletedAt} IS NULL`),
       )
@@ -885,6 +888,20 @@ export class BooksService {
     }
   }
 
+  private buildAdminBookOrder(sort?: string) {
+    const allowed = {
+      title: schema.books.title,
+      createdAt: schema.books.createdAt,
+      priceCents: schema.books.priceCents,
+    } as const;
+
+    const [field, dirRaw] = (sort ?? 'createdAt:desc').split(':');
+    const column =
+      allowed[field as keyof typeof allowed] ?? schema.books.createdAt;
+
+    return [dirRaw === 'desc' ? desc(column) : asc(column)];
+  }
+
   private buildReviewOrder(sort: ListBookReviewsQuery['sort']) {
     switch (sort) {
       case 'oldest':
@@ -975,6 +992,8 @@ export class BooksService {
     input: UpdateBookInput,
   ): Promise<BookWithAuthorName> {
     const existing = await this.findOne(id);
+    console.log({ existing });
+    console.log({ input });
     const nextSlug =
       input.slug ??
       existing.slug ??
@@ -1012,5 +1031,75 @@ export class BooksService {
       .update(schema.books)
       .set({ deletedAt: new Date() })
       .where(eq(schema.books.id, id));
+  }
+
+  async findAllAdmin(query: ListBooksQuery) {
+    const { page, pageSize, sort } = query;
+
+    const where = this.buildWhere(query);
+    const offset = (page - 1) * pageSize;
+
+    const [rows, [{ total }]] = await Promise.all([
+      this.db
+        .select(bookWithAuthorSelection)
+        .from(schema.books)
+        .leftJoin(schema.authors, eq(schema.books.authorId, schema.authors.id))
+        .leftJoin(
+          schema.categories,
+          eq(schema.books.categoryId, schema.categories.id),
+        )
+        .where(where)
+        .orderBy(...this.buildAdminBookOrder(sort))
+        .limit(pageSize)
+        .offset(offset),
+      this.db
+        .select({ total: sql<number>`COUNT(*)` })
+        .from(schema.books)
+        .where(where),
+    ]);
+
+    return {
+      items: rows as BookWithAuthorName[],
+      meta: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+      },
+    };
+  }
+
+  async findOneAdmin(
+    id: string,
+    options?: { userId?: string },
+  ): Promise<BookWithAuthorName> {
+    const [row] = await this.db
+      .select(bookWithAuthorSelection)
+      .from(schema.books)
+      .leftJoin(
+        schema.categories,
+        eq(schema.books.categoryId, schema.categories.id),
+      )
+      .leftJoin(schema.authors, eq(schema.books.authorId, schema.authors.id))
+      .leftJoin(schema.reviews, eq(schema.books.id, schema.reviews.bookId))
+      .where(
+        and(eq(schema.books.id, id), sql`${schema.books.deletedAt} IS NULL`),
+      )
+      .limit(1);
+
+    if (!row) {
+      throw new NotFoundException('Book not found');
+    }
+
+    const reviews = await this.fetchBookReviews(id);
+    const averageRating = this.calculateAverageRating(reviews);
+    const totalReviews = reviews.length;
+
+    return {
+      ...(row as BookWithAuthorName),
+      reviews,
+      averageRating,
+      totalReviews,
+    };
   }
 }

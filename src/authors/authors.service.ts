@@ -90,14 +90,16 @@ export class AuthorsService {
     const [sortField, sortDirRaw] = sort.split(':');
     const sortDir = sortDirRaw?.toLowerCase() === 'desc' ? 'desc' : 'asc';
 
-    const orderBy =
-      sortField === 'createdAt'
-        ? sortDir === 'desc'
-          ? desc(schema.authors.createdAt)
-          : asc(schema.authors.createdAt)
-        : sortDir === 'desc'
-        ? desc(schema.authors.name)
-        : asc(schema.authors.name);
+    const allowedSortFields = {
+      createdAt: schema.authors.createdAt,
+      name: schema.authors.name,
+    } as const;
+
+    const column =
+      allowedSortFields[sortField as keyof typeof allowedSortFields] ??
+      schema.authors.createdAt;
+
+    const orderBy = sortDir === 'desc' ? desc(column) : asc(column);
 
     const where = this.buildWhere(q, search);
     const offset = (page - 1) * pageSize;
@@ -186,9 +188,7 @@ export class AuthorsService {
     const existing = await this.findOne(id);
 
     const slug =
-      input.slug ??
-      existing.slug ??
-      this.slugify(input.name ?? existing.name);
+      input.slug ?? existing.slug ?? this.slugify(input.name ?? existing.name);
 
     await this.db
       .update(schema.authors)

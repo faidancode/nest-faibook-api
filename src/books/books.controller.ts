@@ -37,21 +37,12 @@ import { CloudinaryService } from '../cloudinary/cloudinary.service';
 export class BooksController {
   constructor(
     private readonly booksService: BooksService,
-    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   @Get()
   async findAll(@Query() query: unknown) {
     const parsed = ListBooksQuerySchema.parse(query);
     return this.booksService.findAll(parsed);
-  }
-
-  @Get('admin/:id/reviews')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPERADMIN','ADMIN')
-  async getReviewsByBookId(@Param('id') id: string, @Query() query: unknown) {
-    const parsed = ListBookReviewsQuerySchema.parse(query);
-    return this.booksService.getReviewsByBookId(id, parsed);
   }
 
   @Get(':slug/reviews')
@@ -105,69 +96,9 @@ export class BooksController {
     return this.booksService.createReview(slug, parsed, currentUser.sub);
   }
 
-  @Get('admin/:id')
-  @UseGuards(OptionalJwtAuthGuard)
-  async findOne(@Param('id') id: string, @Req() req: Request) {
-    const currentUser = req.user as JwtPayload | null;
-    return this.booksService.findOne(id, {
-      userId: currentUser?.sub,
-    });
-  }
-
   @Get(':slug')
   async findBySlug(@Param('slug') slug: string) {
     return this.booksService.findBySlug(slug);
   }
 
-  @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPERADMIN','ADMIN')
-  @HttpCode(HttpStatus.CREATED)
-  @UseInterceptors(FileInterceptor('coverUrl'))
-  async create(
-    @UploadedFile() file: Express.Multer.File | undefined,
-    @Body() body: unknown,
-  ) {
-    const basePayload = CreateBookSchema.omit({
-      coverUrl: true,
-    }).parse(body);
-    const coverUrlInput =
-      typeof (body as { coverUrl?: unknown })?.coverUrl === 'string'
-        ? (body as { coverUrl?: string }).coverUrl
-        : undefined;
-
-    let coverUrl = coverUrlInput;
-    if (file && file.buffer && file.size > 0) {
-      coverUrl = await this.cloudinaryService.uploadImage(file,'faibook/books');
-    }
-
-    if (!coverUrl) {
-      throw new BadRequestException('Cover image is required');
-    }
-
-    const parsed = CreateBookSchema.parse({ ...basePayload, coverUrl });
-    return this.booksService.create(parsed);
-  }
-
-  @Patch(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPERADMIN','ADMIN')
-  async update(@Param('id') id: string, @Body() body: unknown) {
-    const parsed = UpdateBookSchema.parse(body);
-    return this.booksService.update(id, parsed);
-  }
-
-  @Delete(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPERADMIN','ADMIN')
-  @HttpCode(HttpStatus.OK)
-  async remove(@Param('id') id: string) {
-    await this.booksService.remove(id);
-    return {
-      ok: true,
-      data: null,
-      meta: null,
-      error: null,
-    };
-  }
 }
