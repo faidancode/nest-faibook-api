@@ -29,6 +29,7 @@ export class OrdersController {
 
   private assertUserAccess(user: JwtPayload, requestedUserId: string) {
     if (user.role === 'ADMIN' || user.role === 'SUPERADMIN') {
+      console.log(user.role);
       return;
     }
 

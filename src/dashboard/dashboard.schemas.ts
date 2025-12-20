@@ -20,7 +20,7 @@ export const RangeQuerySchema = z.object({
 });
 
 export const TopBooksQuerySchema = RangeQuerySchema.extend({
-  limit: z
+  pageSize: z
     .string()
     .optional()
     .transform((v) => (v ? parseInt(v, 10) : undefined))
@@ -29,7 +29,7 @@ export const TopBooksQuerySchema = RangeQuerySchema.extend({
 });
 
 export const RecentOrdersQuerySchema = z.object({
-  limit: z
+  pageSize: z
     .string()
     .optional()
     .transform((v) => (v ? parseInt(v, 10) : undefined))
@@ -44,7 +44,7 @@ export const LowStockQuerySchema = z.object({
     .transform((v) => (v ? parseInt(v, 10) : undefined))
     .pipe(z.number().int().positive().optional())
     .default(5),
-  limit: z
+  pageSize: z
     .string()
     .optional()
     .transform((v) => (v ? parseInt(v, 10) : undefined))
@@ -53,7 +53,7 @@ export const LowStockQuerySchema = z.object({
 });
 
 export const RecentReviewsQuerySchema = z.object({
-  limit: z
+  pageSize: z
     .string()
     .optional()
     .transform((v) => (v ? parseInt(v, 10) : undefined))

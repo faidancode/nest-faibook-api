@@ -107,7 +107,7 @@ export const AdminListOrdersQuerySchema = z.object({
     .optional()
     .transform((v) => (v ? parseInt(v, 10) : 1))
     .pipe(z.number().int().min(1)),
-  limit: z
+  pageSize: z
     .string()
     .optional()
     .transform((v) => (v ? parseInt(v, 10) : 20))

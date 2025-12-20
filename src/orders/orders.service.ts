@@ -823,7 +823,7 @@ export class OrdersService {
     meta: { page: number; pageSize: number; total: number; totalPages: number };
   }> {
     const where = this.buildAdminListWhere(query);
-    const offset = (query.page - 1) * query.limit;
+    const offset = (query.page - 1) * query.pageSize;
 
     const [rows, [{ total }]] = await Promise.all([
       this.db
@@ -866,7 +866,7 @@ export class OrdersService {
           schema.orders.receiptNo,
         )
         .orderBy(desc(schema.orders.placedAt))
-        .limit(query.limit)
+        .limit(query.pageSize)
         .offset(offset),
       this.db
         .select({ total: sql<number>`COUNT(*)` })
@@ -879,9 +879,9 @@ export class OrdersService {
       items: rows as AdminOrderListItem[],
       meta: {
         page: query.page,
-        pageSize: query.limit,
+        pageSize: query.pageSize,
         total,
-        totalPages: Math.ceil(total / query.limit),
+        totalPages: Math.ceil(total / query.pageSize),
       },
     };
   }

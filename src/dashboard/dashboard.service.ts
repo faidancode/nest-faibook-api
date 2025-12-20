@@ -171,7 +171,7 @@ export class DashboardService {
       )
       .groupBy(schema.books.id, schema.books.title, schema.books.coverUrl)
       .orderBy(desc(sql`SUM(${schema.orderItems.quantity})`))
-      .limit(query.limit);
+      .limit(query.pageSize);
 
     return rows.map((row) => ({
       bookId: row.bookId,
@@ -199,7 +199,7 @@ export class DashboardService {
       .leftJoin(schema.users, eq(schema.orders.userId, schema.users.id))
       .where(sql`${schema.orders.deletedAt} IS NULL`)
       .orderBy(desc(schema.orders.placedAt))
-      .limit(query.limit);
+      .limit(query.pageSize);
 
     return rows.map((row) => ({
       id: row.id,
@@ -239,7 +239,7 @@ export class DashboardService {
         ),
       )
       .orderBy(schema.books.stock)
-      .limit(query.limit);
+      .limit(query.pageSize);
 
     return rows.map((row) => ({
       id: row.id,
@@ -272,7 +272,7 @@ export class DashboardService {
         ),
       )
       .orderBy(desc(schema.reviews.createdAt))
-      .limit(query.limit);
+      .limit(query.pageSize);
 
     return rows.map((row) => ({
       id: row.id,
