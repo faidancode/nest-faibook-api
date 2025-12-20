@@ -7,14 +7,14 @@ import { Roles } from '../auth/roles.decorator';
 
 @Controller('v1/admin/customers')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('SUPERADMIN','ADMIN')
+@Roles('SUPERADMIN', 'ADMIN')
 export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
 
   @Get()
   async list(@Query() query: unknown) {
     const parsed = ListCustomersQuerySchema.parse(query);
-    return this.customersService.listCustomers(parsed);
+    return this.customersService.findAll(parsed);
   }
 
   @Get(':id')

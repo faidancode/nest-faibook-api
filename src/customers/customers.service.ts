@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, asc, eq, like, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, like, or, sql } from 'drizzle-orm';
 import type { MySql2Database } from 'drizzle-orm/mysql2';
 import * as schema from '../infra/drizzle/schema';
 import type {
@@ -49,12 +49,25 @@ export class CustomersService {
     return where;
   }
 
-  async listCustomers(query: ListCustomersQuery): Promise<{
-    items: CustomerRow[];
-    meta: { page: number; pageSize: number; total: number; totalPages: number };
-  }> {
-    const where = this.buildWhere(query.q, query.search);
-    const offset = (query.page - 1) * query.pageSize;
+  async findAll(query: ListCustomersQuery) {
+    const { page, pageSize, q, search, sort } = query;
+    const [sortField, sortDirRaw] = sort.split(':');
+    const sortDir = sortDirRaw?.toLowerCase() === 'desc' ? 'desc' : 'asc';
+
+    const allowedSortFields = {
+      createdAt: schema.users.createdAt,
+      name: schema.users.name,
+      email: schema.users.email,
+    } as const;
+
+    const column =
+      allowedSortFields[sortField as keyof typeof allowedSortFields] ??
+      schema.users.createdAt;
+
+    const orderBy = sortDir === 'desc' ? desc(column) : asc(column);
+    console.log({ orderBy });
+    const where = this.buildWhere(q, search);
+    const offset = (page - 1) * pageSize;
 
     const [rows, [{ total }]] = await Promise.all([
       this.db
@@ -68,7 +81,7 @@ export class CustomersService {
         })
         .from(schema.users)
         .where(where)
-        .orderBy(asc(schema.users.name))
+        .orderBy(orderBy)
         .limit(query.pageSize)
         .offset(offset),
       this.db

@@ -13,6 +13,10 @@ export const ListCustomersQuerySchema = z.object({
     .pipe(z.number().int().min(1).max(100)),
   q: z.string().optional(),
   search: z.string().optional(),
+  sort: z
+    .string()
+    .optional()
+    .transform((v) => v ?? 'name:asc'),
 });
 
 export type ListCustomersQuery = z.infer<typeof ListCustomersQuerySchema>;

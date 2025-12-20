@@ -6,7 +6,7 @@ import {
   Optional,
 } from '@nestjs/common';
 import type { MySql2Database, MySql2Transaction } from 'drizzle-orm/mysql2';
-import { and, desc, eq, inArray, like, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, like, or, sql } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import * as schema from '../infra/drizzle/schema';
 import type {
@@ -239,14 +239,8 @@ export class OrdersService {
         bookAuthor: schema.authors.name,
       })
       .from(schema.cartItems)
-      .leftJoin(
-        schema.books,
-        eq(schema.cartItems.bookId, schema.books.id),
-      )
-      .leftJoin(
-        schema.authors,
-        eq(schema.books.authorId, schema.authors.id),
-      )
+      .leftJoin(schema.books, eq(schema.cartItems.bookId, schema.books.id))
+      .leftJoin(schema.authors, eq(schema.books.authorId, schema.authors.id))
       .where(eq(schema.cartItems.cartId, cart.id));
 
     if (items.length === 0) {
@@ -254,7 +248,11 @@ export class OrdersService {
     }
 
     const normalized = items.map((item) => {
-      if (!item.bookTitle || item.bookStock === null || item.bookStock === undefined) {
+      if (
+        !item.bookTitle ||
+        item.bookStock === null ||
+        item.bookStock === undefined
+      ) {
         throw new BadRequestException('Cart contains invalid product');
       }
 
@@ -314,10 +312,7 @@ export class OrdersService {
     }
 
     if (query.paymentStatus) {
-      where = and(
-        where,
-        eq(schema.orders.paymentStatus, query.paymentStatus),
-      );
+      where = and(where, eq(schema.orders.paymentStatus, query.paymentStatus));
     }
 
     return where;
@@ -368,7 +363,9 @@ export class OrdersService {
     return row;
   }
 
-  private async findOrderRowByOrderNumber(orderNumber: string): Promise<OrderRow> {
+  private async findOrderRowByOrderNumber(
+    orderNumber: string,
+  ): Promise<OrderRow> {
     const where = and(
       eq(schema.orders.orderNumber, orderNumber),
       sql`${schema.orders.deletedAt} IS NULL`,
@@ -448,7 +445,7 @@ export class OrdersService {
         bookId: string;
         nextStock: number;
       }> = [];
-      const orderItemsPayload: typeof schema.orderItems.$inferInsert[] = [];
+      const orderItemsPayload: (typeof schema.orderItems.$inferInsert)[] = [];
 
       for (const item of cart.items) {
         if (item.bookStock < item.quantity) {
@@ -513,9 +510,7 @@ export class OrdersService {
           : ('UNPAID' as OrderOutput['paymentStatus']);
 
       if (this.midtransService) {
-        const addressName = this.splitFullName(
-          addressSnapshot.recipientName,
-        );
+        const addressName = this.splitFullName(addressSnapshot.recipientName);
         paymentPayload = await this.midtransService.createTransactionToken({
           orderId: orderNumber,
           grossAmount: totalCents,
@@ -729,15 +724,12 @@ export class OrdersService {
     }
 
     const customerProfile = await this.loadCustomerProfile(order.userId);
-    const addressName = this.splitFullName(
-      order.addressSnapshot.recipientName,
-    );
+    const addressName = this.splitFullName(order.addressSnapshot.recipientName);
 
     const customerDetails = {
       firstName:
         customerProfile.firstName ?? addressName.firstName ?? undefined,
-      lastName:
-        customerProfile.lastName ?? addressName.lastName ?? undefined,
+      lastName: customerProfile.lastName ?? addressName.lastName ?? undefined,
       email: order.customer?.email ?? undefined,
       phone: order.customer?.phone ?? undefined,
     };
@@ -820,10 +812,31 @@ export class OrdersService {
 
   async getAdminOrdersList(query: AdminListOrdersQuery): Promise<{
     items: AdminOrderListItem[];
-    meta: { page: number; pageSize: number; total: number; totalPages: number };
+    meta: {
+      page: number;
+      pageSize: number;
+      total: number;
+      totalPages: number;
+    };
   }> {
+    const { page, pageSize, q, search, sort } = query;
+    const [sortField, sortDirRaw] = sort.split(':');
+    const sortDir = sortDirRaw?.toLowerCase() === 'desc' ? 'desc' : 'asc';
+
+    const allowedSortFields = {
+      orderNumber: schema.orders.orderNumber,
+      createdAt: schema.orders.createdAt,
+      placedAt: schema.orders.placedAt,
+      totalCents: schema.orders.totalCents,
+    } as const;
+
+    const column =
+      allowedSortFields[sortField as keyof typeof allowedSortFields] ??
+      schema.orders.placedAt;
+
+    const orderBy = sortDir === 'desc' ? desc(column) : asc(column);
     const where = this.buildAdminListWhere(query);
-    const offset = (query.page - 1) * query.pageSize;
+    const offset = (page - 1) * pageSize;
 
     const [rows, [{ total }]] = await Promise.all([
       this.db
@@ -865,8 +878,8 @@ export class OrdersService {
           schema.orders.paidAt,
           schema.orders.receiptNo,
         )
-        .orderBy(desc(schema.orders.placedAt))
-        .limit(query.pageSize)
+        .orderBy(orderBy)
+        .limit(pageSize)
         .offset(offset),
       this.db
         .select({ total: sql<number>`COUNT(*)` })
@@ -966,7 +979,7 @@ export class OrdersService {
   ): Promise<OrderOutput> {
     const order = await this.findOrderRow(orderId);
     const currentStatus = order.status as OrderStatus;
-    console.log({currentStatus});
+    console.log({ currentStatus });
 
     if (input.nextStatus === 'PROCESSING') {
       this.ensureStatus(
@@ -1007,7 +1020,9 @@ export class OrdersService {
   async markShippedOrderAsDelivered(orderId: string): Promise<OrderOutput> {
     const order = await this.findOrderRow(orderId);
     if (order.status !== 'SHIPPED') {
-      throw new BadRequestException('Only shipped orders can be marked as delivered');
+      throw new BadRequestException(
+        'Only shipped orders can be marked as delivered',
+      );
     }
 
     await this.db

@@ -113,7 +113,12 @@ export const AdminListOrdersQuerySchema = z.object({
     .transform((v) => (v ? parseInt(v, 10) : 20))
     .pipe(z.number().int().min(1).max(100)),
   status: OrderStatusEnum.optional(),
+  q: z.string().optional(),
   search: z.string().optional(),
+  sort: z
+    .string()
+    .optional()
+    .transform((v) => v ?? 'name:asc'),
 });
 
 export const CheckoutOrderSchema = z.object({
@@ -123,10 +128,7 @@ export const CheckoutOrderSchema = z.object({
   shippingCents: z.coerce.number().int().min(0).optional().default(0),
   discountCents: z.coerce.number().int().min(0).optional().default(0),
   note: z.string().max(255).optional(),
-  initialStatus: z
-    .enum(['PENDING', 'PAID'])
-    .optional()
-    .default('PENDING'),
+  initialStatus: z.enum(['PENDING', 'PAID']).optional().default('PENDING'),
 });
 
 export const CustomerUpdateStatusSchema = z.object({
