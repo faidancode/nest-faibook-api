@@ -274,31 +274,9 @@ export class AuthController {
     @Body(new ZodValidationPipe(RequestPasswordResetSchema))
     parsed: RequestPasswordResetInput,
   ) {
-    const { email } = parsed;
-    const user = await this.authService.getCustomerByEmail(email);
-    const name = user.user.name;
+    await this.authService.requestPasswordReset(parsed.email);
 
-    const result = await this.authService.requestPasswordReset(parsed.email);
-
-    // Jika token berhasil dibuat dan email perlu dikirim (emailSent: true),
-    // Lanjutkan ke logic pengiriman email di sini.
-
-    if (result.emailSent && result.resetToken) {
-      // DI SINI ADALAH TEMPAT UNTUK MENGIRIM EMAIL DENGAN RESEND & REACT EMAIL
-
-      // Contoh: Membuat URL Reset. Anda perlu mendapatkan BASE_URL dari config.
-      const BASE_URL = process.env.WEBSTORE_URL || 'http://localhost:3001';
-      const resetUrl = `${BASE_URL}/reset-password?token=${result.resetToken}`;
-
-      // Panggil service email Anda di sini:
-      await this.emailService.sendResetPasswordEmail(
-        parsed.email,
-        resetUrl,
-        name,
-      );
-    }
-
-    // Keamanan: Selalu berikan respons OK yang generik kepada pengguna
+    // SELALU response generik (anti user enumeration)
     return ok({
       message:
         'If the email is registered, a password reset link has been sent.',
