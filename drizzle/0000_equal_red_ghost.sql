@@ -147,8 +147,8 @@ CREATE TABLE `password_reset_tokens` (
 	`id` varchar(36) NOT NULL,
 	`token` varchar(255) NOT NULL,
 	`user_id` varchar(36) NOT NULL,
-	`expires_at` datetime NOT NULL,
-	`created_at` timestamp DEFAULT (now()),
+	`expires_at` timestamp NOT NULL,
+	`created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	CONSTRAINT `password_reset_tokens_id` PRIMARY KEY(`id`),
 	CONSTRAINT `password_reset_tokens_token_unique` UNIQUE(`token`)
 );

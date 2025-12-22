@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type { MySql2Database } from 'drizzle-orm/mysql2';
-import { eq } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import * as schema from '../infra/drizzle/schema';
 import type {
   JwtPayload,
@@ -32,7 +32,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly appConfig: AppConfig,
     private readonly emailService: EmailService,
-    private readonly configService: ConfigService<Env, true>
+    private readonly configService: ConfigService<Env, true>,
   ) {}
 
   private async validateUser(email: string, password: string) {
@@ -236,7 +236,7 @@ export class AuthService {
   async requestPasswordReset(email: string) {
     const user = await this.db.query.users.findFirst({
       where: eq(schema.users.email, email),
-      columns: { id: true, name:true },
+      columns: { id: true, name: true },
     });
 
     // Security Best Practice: Selalu kembalikan respons OK/Sukses,
@@ -248,6 +248,31 @@ export class AuthService {
       return { success: true, emailSent: false };
     }
 
+    // Cek apakah sudah ada token aktif (belum expired) dan dibuat kurang dari 10 menit lalu
+    const existingToken = await this.db.query.passwordResetTokens.findFirst({
+      where: eq(schema.passwordResetTokens.userId, user.id),
+      orderBy: desc(schema.passwordResetTokens.createdAt), // asumsikan ada field createdAt di tabel
+    });
+    const now = new Date();
+
+    if (existingToken && existingToken.createdAt) {
+      const tokenCreatedAt = new Date(existingToken.createdAt);
+      const diffMinutes = (now.getTime() - tokenCreatedAt.getTime()) / 60000;
+
+      if (diffMinutes < 10 && new Date(existingToken.expiresAt) > now) {
+        // Token masih aktif dan belum mencapai jeda 10 menit
+        console.log(
+          `[PASSWORD_RESET] Request terlalu sering untuk userId=${user.id}`,
+        );
+        return {
+          success: true,
+          emailSent: false,
+          message:
+            'A password reset link was recently sent. Please check your email or try again later.',
+        };
+      }
+    }
+
     const resetToken = randomUUID();
     const expiresAt = addMinutes(new Date(), 30); // Token kedaluwarsa dalam 30 menit
     const newId = randomUUID();
@@ -257,18 +282,19 @@ export class AuthService {
         id: newId,
         userId: user.id,
         token: resetToken,
+        createdAt: now,
         expiresAt: expiresAt, // Simpan format ISO
       })
       .onDuplicateKeyUpdate({
         set: { token: resetToken, expiresAt: expiresAt },
       });
 
-    const BASE_URL = this.configService.get<string>('WEBSTORE_URL'); 
+    const BASE_URL = this.configService.get<string>('WEBSTORE_URL');
     const resetUrl = `${BASE_URL}/reset-password?token=${resetToken}`;
     await this.emailService.sendResetPasswordEmail(
-        email, 
-        resetUrl, 
-        user.name // Asumsi Anda mengambil nama pengguna saat mencari user
+      email,
+      resetUrl,
+      user.name, // Asumsi Anda mengambil nama pengguna saat mencari user
     );
 
     return {
@@ -280,49 +306,74 @@ export class AuthService {
 
   // --- NEW METHOD 2: Menggunakan token untuk reset password ---
   async resetPassword(token: string, newPassword: string) {
+    // 1. Cari token reset
     const resetRecord = await this.db.query.passwordResetTokens.findFirst({
       where: eq(schema.passwordResetTokens.token, token),
     });
 
     if (!resetRecord) {
-      throw new UnauthorizedException('Invalid or expired reset token');
+      throw new UnauthorizedException({
+        success: false,
+        code: 'RESET_TOKEN_INVALID',
+        message: 'Reset password link is invalid or has expired.',
+      });
     }
 
-    // Cek kedaluwarsa
-    if (isAfter(new Date(), new Date(resetRecord.expiresAt))) {
-      // Hapus token yang sudah kedaluwarsa agar tidak dapat digunakan lagi
+    // 2. Cek token expired
+    const isExpired = isAfter(new Date(), new Date(resetRecord.expiresAt));
+
+    if (isExpired) {
+      // revoke token expired
       await this.db
         .delete(schema.passwordResetTokens)
         .where(eq(schema.passwordResetTokens.token, token));
-      throw new UnauthorizedException('Invalid or expired reset token');
+
+      throw new UnauthorizedException({
+        success: false,
+        code: 'RESET_TOKEN_EXPIRED',
+        message: 'Reset password link has expired. Please request a new one.',
+      });
     }
 
+    // 3. Ambil user
     const user = await this.db.query.users.findFirst({
       where: eq(schema.users.id, resetRecord.userId),
     });
 
     if (!user) {
-      // Hapus token jika user tidak ada
+      // revoke token jika user tidak ada
       await this.db
         .delete(schema.passwordResetTokens)
         .where(eq(schema.passwordResetTokens.token, token));
-      throw new UnauthorizedException('User not found');
+
+      throw new UnauthorizedException({
+        success: false,
+        code: 'USER_NOT_FOUND',
+        message: 'User associated with this reset link no longer exists.',
+      });
     }
 
-    // 1. Hash password baru
+    // 4. Hash password baru
     const passwordHash = await bcrypt.hash(newPassword, 10);
 
-    // 2. Update password user
+    // 5. Update password user
     await this.db
       .update(schema.users)
-      .set({ passwordHash })
-      .where(eq(schema.users.id, resetRecord.userId));
+      .set({
+        passwordHash,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.users.id, user.id));
 
-    // 3. Hapus/Revoke token agar tidak dapat digunakan lagi
+    // 6. Revoke token (one-time use)
     await this.db
       .delete(schema.passwordResetTokens)
       .where(eq(schema.passwordResetTokens.token, token));
 
-    return { success: true };
+    // 7. Success response
+    return {
+      success: true,
+      message: 'Password has been reset successfully.',
+    };
   }
 }

@@ -35,9 +35,9 @@ export class EmailService {
     // 2. PENGIRIMAN: Panggil Resend API
     try {
       const { data, error } = await this.resend.emails.send({
-        from: `Your Bookstore <${this.fromEmail}>`,
+        from: `Faibook <${this.fromEmail}>`,
         to: [to],
-        subject: 'Reset Password Anda',
+        subject: 'Reset Your Password',
         html: emailHtml, // Gunakan HTML yang sudah di-render
         // Optional: tambahkan headers untuk dev mode
         // headers: { 'X-Resend-Development-Mode': 'true' } 

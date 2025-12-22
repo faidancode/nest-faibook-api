@@ -44,7 +44,7 @@ export const users = mysqlTable('users', {
   phone: varchar('phone', { length: 30 }),
   passwordHash: varchar('passwordHash', { length: 255 }).notNull(),
   isActive: boolean('isActive').notNull().default(true),
-  role: mysqlEnum("role", ["SUPERADMIN", "ADMIN", "CUSTOMER"]).notNull(),
+  role: mysqlEnum('role', ['SUPERADMIN', 'ADMIN', 'CUSTOMER']).notNull(),
 
   ...timestamps,
 });
@@ -208,9 +208,7 @@ export const cartItems = mysqlTable(
     createdAt: timestamp('createdAt').notNull().defaultNow(),
     updatedAt: timestamp('updatedAt').notNull().defaultNow().onUpdateNow(),
   },
-  (table) => [
-    uniqueIndex('uniq_cart_book').on(table.cartId, table.bookId),
-  ],
+  (table) => [uniqueIndex('uniq_cart_book').on(table.cartId, table.bookId)],
 );
 
 /* =======================================================
@@ -279,8 +277,7 @@ export const orders = mysqlTable(
     paidAt: datetime('paidAt'),
     cancelledAt: datetime('cancelledAt'),
     completedAt: datetime('completedAt'),
-    receiptNo: varchar("receipt_no", { length: 50 })
-    .unique(),
+    receiptNo: varchar('receipt_no', { length: 50 }).unique(),
 
     ...timestamps,
   },
@@ -343,11 +340,18 @@ export const passwordResetTokens = mysqlTable(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    expiresAt: datetime('expires_at').notNull(),
-    createdAt: timestamp('created_at').defaultNow(),
+    expiresAt: timestamp('expires_at', {
+      mode: 'date',
+    }).notNull(),
+
+    createdAt: timestamp('created_at', {
+      mode: 'date',
+    })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
   },
   (table) => [
-      index('token_idx').on(table.token),
-      index('user_id_idx').on(table.userId),
+    index('token_idx').on(table.token),
+    index('user_id_idx').on(table.userId),
   ],
 );

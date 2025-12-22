@@ -8,6 +8,7 @@ import {
   Post,
   Req,
   Res,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
@@ -192,7 +193,10 @@ export class AuthController {
           : undefined;
 
       if (!refreshToken) {
-        return fail('NO_REFRESH_TOKEN', 'Missing refresh token');
+        throw new UnauthorizedException({
+          code: 'NO_REFRESH_TOKEN',
+          message: 'Missing refresh token',
+        });
       }
 
       const result =
@@ -274,11 +278,15 @@ export class AuthController {
     @Body(new ZodValidationPipe(RequestPasswordResetSchema))
     parsed: RequestPasswordResetInput,
   ) {
-    await this.authService.requestPasswordReset(parsed.email);
-
     // SELALU response generik (anti user enumeration)
+    const result = await this.authService.requestPasswordReset(parsed.email);
+
+    // Return the full result including message and emailSent flag
     return ok({
+      success: result.success,
+      emailSent: result.emailSent,
       message:
+        result.message ??
         'If the email is registered, a password reset link has been sent.',
     });
   }
