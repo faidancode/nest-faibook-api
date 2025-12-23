@@ -7,15 +7,11 @@ import type { JwtPayload } from './auth.schemas';
 
 function cookieExtractor(req: Request): string | null {
   if (req?.cookies?.accessToken) {
-    console.log("req?.cookies");
-    console.log(req?.cookies);
     return req.cookies.accessToken;
   }
 
   // 2. Fallback: Parse manual dari header 'cookie' (penting untuk Proxy)
   const rawCookieHeader = req.headers.cookie;
-  console.log("{rawCookieHeader}");
-  console.log({rawCookieHeader});
   if (rawCookieHeader) {
     // Mencari value dari key 'accessToken' menggunakan regex
     const match = rawCookieHeader.match(/accessToken=([^;]+)/);

@@ -992,8 +992,6 @@ export class BooksService {
     input: UpdateBookInput,
   ): Promise<BookWithAuthorName> {
     const existing = await this.findOne(id);
-    console.log({ existing });
-    console.log({ input });
     const nextSlug =
       input.slug ??
       existing.slug ??

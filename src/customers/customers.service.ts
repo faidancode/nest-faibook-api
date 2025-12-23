@@ -65,7 +65,6 @@ export class CustomersService {
       schema.users.createdAt;
 
     const orderBy = sortDir === 'desc' ? desc(column) : asc(column);
-    console.log({ orderBy });
     const where = this.buildWhere(q, search);
     const offset = (page - 1) * pageSize;
 

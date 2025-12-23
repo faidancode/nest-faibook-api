@@ -29,7 +29,6 @@ export class OrdersController {
 
   private assertUserAccess(user: JwtPayload, requestedUserId: string) {
     if (user.role === 'ADMIN' || user.role === 'SUPERADMIN') {
-      console.log(user.role);
       return;
     }
 
@@ -95,8 +94,6 @@ export class OrdersController {
   ) {
     const parsed = CustomerUpdateStatusSchema.parse(body ?? {});
     const currentUser = req.user as JwtPayload;
-    console.log('Req:', req);
-    console.log('Current User:', currentUser);
     return this.ordersService.updateCustomerStatus(
       id,
       currentUser.sub,

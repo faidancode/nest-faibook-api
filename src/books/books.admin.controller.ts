@@ -86,10 +86,7 @@ export class BooksAdminController {
 
   @Patch(':id')
   async update(@Param('id') id: string, @Body() body: unknown) {
-    console.log({ body });
     const parsed = UpdateBookSchema.parse(body);
-    console.log({ id });
-    console.log({ parsed });
     return this.booksService.update(id, parsed);
   }
 

@@ -95,9 +95,6 @@ export class CartsService {
       .where(eq(schema.cartItems.cartId, cart.id))
       // Tambahkan order by agar hasil konsisten
       .orderBy(schema.cartItems.createdAt);
-    console.log('get cart detail');
-    console.log({ cart });
-    console.log({ items });
     return this.buildCartOutput(
       cart,
       items as unknown as CartItemWithProduct[],
