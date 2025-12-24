@@ -1,4 +1,12 @@
-import { Body, BadRequestException, Controller, ForbiddenException, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import {
+  Body,
+  BadRequestException,
+  Controller,
+  ForbiddenException,
+  HttpCode,
+  HttpStatus,
+  Post,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash } from 'crypto';
 import { OrdersService } from './orders.service';
@@ -45,6 +53,7 @@ export class OrdersMidtransController {
   async handleNotification(@Body() body: unknown) {
     const payload = MidtransNotificationSchema.parse(body);
     this.verifySignature(payload);
+    console.log({ payload });
 
     const shouldMarkPaid =
       payload.transaction_status === 'settlement' ||
@@ -56,14 +65,13 @@ export class OrdersMidtransController {
     }
 
     const amountCents = this.parseGrossAmount(payload.gross_amount);
-    const summary =
-      await this.ordersService.getOrderSummaryByOrderNumber(payload.order_id);
+    const summary = await this.ordersService.getOrderSummaryByOrderNumber(
+      payload.order_id,
+    );
 
     const expectedGross = Math.max(
       0,
-      summary.subtotalCents -
-        summary.discountCents +
-        summary.shippingCents,
+      summary.subtotalCents - summary.discountCents + summary.shippingCents,
     );
 
     if (amountCents !== expectedGross) {
@@ -80,6 +88,7 @@ export class OrdersMidtransController {
 
     await this.ordersService.updatePaymentStatus(summary.orderId, {
       paymentStatus: 'PAID',
+      paymentMethod: payload.payment_type,
       paidAt,
     });
 

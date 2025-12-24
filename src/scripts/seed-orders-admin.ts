@@ -93,7 +93,9 @@ const STATUSES: SeedStatus[] = [
 
 const ORDERS_PER_STATUS = 30;
 
-function resolvePaymentStatus(status: SeedStatus): 'UNPAID' | 'PAID' | 'REFUNDED' {
+function resolvePaymentStatus(
+  status: SeedStatus,
+): 'UNPAID' | 'PAID' | 'REFUNDED' {
   switch (status) {
     case 'PENDING':
       return 'UNPAID';
@@ -108,8 +110,8 @@ async function seedOrders(db: MySql2Database<typeof schema>) {
   const customers = await fetchCustomers(db);
   const books = await fetchBooks(db);
 
-  const ordersPayload: typeof schema.orders.$inferInsert[] = [];
-  const orderItemsPayload: typeof schema.orderItems.$inferInsert[] = [];
+  const ordersPayload: (typeof schema.orders.$inferInsert)[] = [];
+  const orderItemsPayload: (typeof schema.orderItems.$inferInsert)[] = [];
 
   for (const status of STATUSES) {
     for (let i = 0; i < ORDERS_PER_STATUS; i += 1) {
@@ -139,7 +141,10 @@ async function seedOrders(db: MySql2Database<typeof schema>) {
 
       const discountCents = 0;
       const shippingCents = randomInt(0, 1500);
-      const totalCents = Math.max(0, subtotalCents - discountCents + shippingCents);
+      const totalCents = Math.max(
+        0,
+        subtotalCents - discountCents + shippingCents,
+      );
 
       const paymentStatus = resolvePaymentStatus(status);
       const paidAt =
@@ -183,7 +188,11 @@ async function seedOrders(db: MySql2Database<typeof schema>) {
         paidAt,
         cancelledAt,
         completedAt,
-        receiptNo: status === 'SHIPPED' || status === 'DELIVERED' ? `RCPT-${randomInt(10000, 99999)}` : null,
+        receiptNo:
+          status === 'SHIPPED' || status === 'DELIVERED'
+            ? `RCPT-${randomInt(10000, 99999)}`
+            : null,
+        midtransOrderId: orderId,
         createdAt: now,
         updatedAt: now,
       });
@@ -216,7 +225,9 @@ async function main() {
     database,
   });
 
-  const db = drizzle(pool, { schema, mode: 'default' }) as MySql2Database<typeof schema>;
+  const db = drizzle(pool, { schema, mode: 'default' }) as MySql2Database<
+    typeof schema
+  >;
 
   try {
     await seedOrders(db);

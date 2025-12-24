@@ -260,9 +260,7 @@ export const orders = mysqlTable(
       .references(() => users.id),
 
     status: varchar('status', { length: 16 }).notNull().default('PENDING'),
-    paymentMethod: varchar('paymentMethod', { length: 16 })
-      .notNull()
-      .default('VA'),
+    paymentMethod: varchar('paymentMethod', { length: 16 }),
     paymentStatus: varchar('paymentStatus', { length: 16 })
       .notNull()
       .default('UNPAID'),
@@ -278,6 +276,20 @@ export const orders = mysqlTable(
     cancelledAt: datetime('cancelledAt'),
     completedAt: datetime('completedAt'),
     receiptNo: varchar('receipt_no', { length: 50 }).unique(),
+
+    /* =========================
+     MIDTRANS
+  ========================= */
+
+    midtransOrderId: varchar('midtransOrderId', { length: 50 }).notNull(),
+
+    snapToken: varchar('snapToken', { length: 255 }),
+
+    snapRedirectUrl: varchar('snapRedirectUrl', { length: 255 }),
+
+    snapTokenExpiredAt: datetime('snapTokenExpiredAt', {
+      mode: 'date',
+    }),
 
     ...timestamps,
   },

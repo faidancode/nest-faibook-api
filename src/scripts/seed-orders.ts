@@ -138,6 +138,7 @@ async function main() {
       completedAt: now,
       createdAt: now,
       updatedAt: now,
+      midtransOrderId: orderId
     });
 
     if (orderItems.length) {

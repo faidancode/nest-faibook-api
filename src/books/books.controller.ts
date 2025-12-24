@@ -1,37 +1,24 @@
 import {
-  BadRequestException,
   Body,
   Controller,
-  Delete,
-  Get,
   ForbiddenException,
-  HttpCode,
-  HttpStatus,
+  Get,
   Param,
-  Patch,
   Post,
   Query,
   Req,
-  UploadedFile,
-  UseGuards,
-  UseInterceptors,
+  UseGuards
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request } from 'express';
-import { BooksService } from './books.service';
+import type { JwtPayload } from '../auth/auth.schemas';
+import { JwtAuthGuard } from '../auth/jwt.guard';
+import { OptionalJwtAuthGuard } from '../auth/optional-jwt.guard';
 import {
-  CreateBookSchema,
   CreateReviewSchema,
   ListBookReviewsQuerySchema,
-  ListBooksQuerySchema,
-  UpdateBookSchema,
+  ListBooksQuerySchema
 } from './books.schemas';
-import { JwtAuthGuard } from '../auth/jwt.guard';
-import { RolesGuard } from '../auth/roles.guard';
-import { Roles } from '../auth/roles.decorator';
-import type { JwtPayload } from '../auth/auth.schemas';
-import { OptionalJwtAuthGuard } from '../auth/optional-jwt.guard';
-import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { BooksService } from './books.service';
 
 @Controller('v1/books')
 export class BooksController {

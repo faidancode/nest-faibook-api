@@ -27,6 +27,7 @@ import {
   type OrdersPaymentIntegration,
 } from './orders.payment';
 import { MidtransService } from '../midtrans/midtrans.service';
+import { addHours } from 'date-fns';
 
 type Db = MySql2Database<typeof schema>;
 type Tx = MySql2Transaction<typeof schema, any>;
@@ -76,6 +77,11 @@ export type CheckoutPaymentPayload = {
   snapToken: string;
   redirectUrl?: string;
 };
+
+export function isExpired(expiresAt: Date | null | undefined): boolean {
+  if (!expiresAt) return true;
+  return expiresAt.getTime() <= Date.now();
+}
 
 type CheckoutResult = {
   order: OrderOutput;
@@ -141,7 +147,7 @@ export class OrdersService {
       orderNumber: row.orderNumber ?? '',
       userId: row.userId,
       status: row.status as OrderStatus,
-      paymentMethod: row.paymentMethod,
+      paymentMethod: row.paymentMethod ?? null,
       paymentStatus: row.paymentStatus as OrderOutput['paymentStatus'],
       addressSnapshot: row.addressSnapshot as AddressSnapshot,
       subtotalCents: row.subtotalCents,
@@ -154,6 +160,10 @@ export class OrdersService {
       cancelledAt: row.cancelledAt ?? null,
       completedAt: row.completedAt ?? null,
       receiptNo: row.receiptNo ?? null,
+      midtransOrderId: row.midtransOrderId ?? null,
+      snapToken: row.snapToken ?? null,
+      snapRedirectUrl: row.snapRedirectUrl ?? null,
+      snapTokenExpiredAt: row.snapTokenExpiredAt ?? null,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt ?? null,
       deletedAt: row.deletedAt ?? null,
@@ -239,7 +249,7 @@ export class OrdersService {
         bookAuthor: schema.authors.name,
       })
       .from(schema.cartItems)
-      .leftJoin(schema.books, eq(schema.cartItems.bookId, schema.books.id))
+      .innerJoin(schema.books, eq(schema.cartItems.bookId, schema.books.id))
       .leftJoin(schema.authors, eq(schema.books.authorId, schema.authors.id))
       .where(eq(schema.cartItems.cartId, cart.id));
 
@@ -247,30 +257,9 @@ export class OrdersService {
       throw new BadRequestException('Cart is empty');
     }
 
-    const normalized = items.map((item) => {
-      if (
-        !item.bookTitle ||
-        item.bookStock === null ||
-        item.bookStock === undefined
-      ) {
-        throw new BadRequestException('Cart contains invalid product');
-      }
-
-      return {
-        id: item.id,
-        cartId: item.cartId,
-        bookId: item.bookId,
-        quantity: item.quantity,
-        priceCentsAtAdd: item.priceCentsAtAdd,
-        bookTitle: item.bookTitle,
-        bookStock: item.bookStock,
-        bookAuthor: item.bookAuthor,
-      };
-    });
-
     return {
       cartId: cart.id,
-      items: normalized,
+      items,
     };
   }
 
@@ -399,6 +388,7 @@ export class OrdersService {
     options?: { idempotencyKey?: string },
   ): Promise<CheckoutResult> {
     const trimmedKey = options?.idempotencyKey?.trim();
+    console.log(trimmedKey);
     const cacheKey =
       trimmedKey && trimmedKey.length > 0
         ? `${input.userId}:${trimmedKey}`
@@ -407,9 +397,14 @@ export class OrdersService {
     if (cacheKey) {
       const existing = this.idempotencyCache.get(cacheKey);
       if (existing) {
-        const cachedOrder = await this.getOrderDetails(existing, input.userId);
-        return { order: cachedOrder, payment: null };
+        return {
+          order: await this.getOrderDetails(existing, input.userId),
+          payment: null,
+        };
       }
+
+      // ⛔ LOCK sebelum transaction
+      this.idempotencyCache.set(cacheKey, 'LOCKED');
     }
 
     const now = new Date();
@@ -421,7 +416,8 @@ export class OrdersService {
 
     await this.db.transaction(async (tx) => {
       const cart = await this.fetchCartWithItems(tx, input.userId);
-
+      console.log('CART');
+      console.log({ cart });
       const [address] = await tx
         .select()
         .from(schema.addresses)
@@ -528,13 +524,14 @@ export class OrdersService {
           items: midtransItems,
         });
       }
+      console.log({ paymentPayload });
 
       await tx.insert(schema.orders).values({
         id: orderId,
         orderNumber,
         userId: input.userId,
         status: initialStatus,
-        paymentMethod: input.paymentMethod ?? 'VA',
+        paymentMethod: input.paymentMethod,
         paymentStatus,
         addressSnapshot,
         subtotalCents,
@@ -544,10 +541,13 @@ export class OrdersService {
         note: input.note ?? null,
         placedAt: now,
         paidAt: initialStatus === 'PAID' ? now : null,
+        midtransOrderId: orderId,
+        snapToken: paymentPayload?.snapToken ?? null,
+        snapRedirectUrl: paymentPayload?.redirectUrl ?? null,
+        snapTokenExpiredAt: paymentPayload ? addHours(now, 24) : null,
       });
 
       await tx.insert(schema.orderItems).values(orderItemsPayload);
-
       for (const adj of stockAdjustments) {
         await tx
           .update(schema.books)
@@ -561,7 +561,6 @@ export class OrdersService {
       await tx
         .delete(schema.cartItems)
         .where(eq(schema.cartItems.cartId, cart.cartId));
-
       await tx
         .update(schema.carts)
         .set({ updatedAt: new Date() })
@@ -569,7 +568,6 @@ export class OrdersService {
     });
 
     const order = await this.getOrderDetails(orderId, input.userId);
-
     if (cacheKey) {
       this.idempotencyCache.set(cacheKey, order.id);
     }
@@ -735,7 +733,7 @@ export class OrdersService {
     };
 
     const payload = {
-      orderId: order.orderNumber,
+      orderId: `${order.orderNumber}_${Date.now()}`,
       grossAmount: order.totalCents,
       customer:
         customerDetails.firstName ||
@@ -747,7 +745,31 @@ export class OrdersService {
       items: this.buildMidtransItems(order),
     };
 
-    return this.midtransService.createTransactionToken(payload);
+    if (
+      order.snapToken &&
+      order.snapRedirectUrl &&
+      !isExpired(order.snapTokenExpiredAt)
+    ) {
+      return {
+        snapToken: order.snapToken,
+        redirectUrl: order.snapRedirectUrl,
+      };
+    }
+
+    // create baru
+    const tx = await this.midtransService.createTransactionToken(payload);
+
+    // SIMPAN DI ORDER
+    await this.db
+      .update(schema.orders)
+      .set({
+        snapToken: tx.snapToken,
+        snapRedirectUrl: tx.redirectUrl,
+        snapTokenExpiredAt: addHours(new Date(), 24),
+      })
+      .where(eq(schema.orders.id, order.id));
+
+    return tx;
   }
 
   async getOrderSummaryByOrderNumber(orderNumber: string): Promise<{
@@ -1057,6 +1079,7 @@ export class OrdersService {
     const now = new Date();
     const payload: Partial<typeof schema.orders.$inferInsert> = {
       paymentStatus: nextStatus,
+      paymentMethod: input.paymentMethod,
       updatedAt: now,
     };
 

@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { string, z } from 'zod';
 
 export const OrderStatusEnum = z.enum([
   'PENDING',
@@ -46,7 +46,7 @@ export const OrderSchema = z.object({
   orderNumber: z.string(),
   userId: z.uuid(),
   status: OrderStatusEnum,
-  paymentMethod: z.string(),
+  paymentMethod: z.string().nullable(),
   paymentStatus: PaymentStatusEnum,
   addressSnapshot: AddressSnapshotSchema,
   subtotalCents: z.number().int().nonnegative(),
@@ -59,6 +59,10 @@ export const OrderSchema = z.object({
   cancelledAt: z.coerce.date().nullable(),
   completedAt: z.coerce.date().nullable(),
   receiptNo: z.string().max(50).nullable(),
+  midtransOrderId: z.string().min(1),
+  snapToken: z.string().nullable(),
+  snapRedirectUrl: z.url().nullable(),
+  snapTokenExpiredAt: z.date().nullable(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date().nullable(),
   deletedAt: z.coerce.date().nullable(),
@@ -124,7 +128,7 @@ export const AdminListOrdersQuerySchema = z.object({
 export const CheckoutOrderSchema = z.object({
   userId: z.uuid(),
   addressId: z.uuid(),
-  paymentMethod: z.string().min(2).max(16).optional().default('VA'),
+  paymentMethod: z.string().optional(),
   shippingCents: z.coerce.number().int().min(0).optional().default(0),
   discountCents: z.coerce.number().int().min(0).optional().default(0),
   note: z.string().max(255).optional(),
@@ -145,6 +149,7 @@ export const AdminUpdateStatusSchema = z.object({
 
 export const UpdatePaymentStatusSchema = z.object({
   paymentStatus: PaymentStatusEnum,
+  paymentMethod: string().optional(),
   paidAt: z.coerce.date().optional(),
   cancelledAt: z.coerce.date().optional(),
   note: z.string().max(255).optional(),
@@ -157,6 +162,19 @@ export const MidtransNotificationSchema = z.object({
   gross_amount: z.string(),
   signature_key: z.string(),
   status_code: z.string(),
+  payment_type: z
+    .enum([
+      'credit_card',
+      'echannel',
+      'bank_transfer',
+      'bca_klikpay',
+      'bca_klikbca',
+      'bri_epay',
+      'gopay',
+      'qris',
+      'cstore',
+    ])
+    .optional(),
   fraud_status: z.string().optional(),
 });
 

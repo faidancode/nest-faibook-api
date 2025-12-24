@@ -211,21 +211,22 @@ export class CartsService {
       .where(eq(schema.carts.userId, input.userId))
       .limit(1);
 
+    // Jika cart belum ada, buat baru
     if (!existingCart) {
       const id = randomUUID();
-
       await this.db.insert(schema.carts).values({
         id,
         userId: input.userId,
       });
 
+      // Insert items baru (jika ada)
       if (input.items.length > 0) {
         await this.db.insert(schema.cartItems).values(
           input.items.map((item) => ({
             id: randomUUID(),
             cartId: id,
             bookId: item.bookId,
-            quantity: item.quantity,
+            quantity: item.quantity, // ✅ Langsung pakai qty dari FE
             priceCentsAtAdd: item.priceCentsAtAdd,
           })),
         );
@@ -234,50 +235,33 @@ export class CartsService {
       return this.findOne(id);
     }
 
-    if (input.items.length === 0) {
-      return this.findOne(existingCart.id);
-    }
+    // ✅ REPLACE LOGIC (bukan merge)
+    await this.db.transaction(async (tx) => {
+      // 1. Hapus semua items lama
+      await tx
+        .delete(schema.cartItems)
+        .where(eq(schema.cartItems.cartId, existingCart.id));
 
-    const existingItems = await this.db
-      .select()
-      .from(schema.cartItems)
-      .where(eq(schema.cartItems.cartId, existingCart.id));
-
-    const itemsBybookId = new Map(
-      existingItems.map((item) => [item.bookId, item]),
-    );
-
-    const newItemsPayload: (typeof schema.cartItems.$inferInsert)[] = [];
-    for (const item of input.items) {
-      const found = itemsBybookId.get(item.bookId);
-      if (found) {
-        await this.db
-          .update(schema.cartItems)
-          .set({
-            quantity: found.quantity + item.quantity,
+      // 2. Insert items baru dari payload (full replacement)
+      if (input.items.length > 0) {
+        await tx.insert(schema.cartItems).values(
+          input.items.map((item) => ({
+            id: randomUUID(),
+            cartId: existingCart.id,
+            bookId: item.bookId,
+            quantity: item.quantity, // ✅ Qty sudah final dari FE
             priceCentsAtAdd: item.priceCentsAtAdd,
-            updatedAt: new Date(),
-          })
-          .where(eq(schema.cartItems.id, found.id));
-      } else {
-        newItemsPayload.push({
-          id: randomUUID(),
-          cartId: existingCart.id,
-          bookId: item.bookId,
-          quantity: item.quantity,
-          priceCentsAtAdd: item.priceCentsAtAdd,
-        });
+          })),
+        );
       }
-    }
 
-    if (newItemsPayload.length > 0) {
-      await this.db.insert(schema.cartItems).values(newItemsPayload);
-    }
+      // 3. Update timestamp cart
+      await tx
+        .update(schema.carts)
+        .set({ updatedAt: new Date() })
+        .where(eq(schema.carts.id, existingCart.id));
+    });
 
-    await this.db
-      .update(schema.carts)
-      .set({ updatedAt: new Date() })
-      .where(eq(schema.carts.id, existingCart.id));
     return this.findOne(existingCart.id);
   }
 

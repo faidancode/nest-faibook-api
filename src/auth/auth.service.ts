@@ -291,11 +291,11 @@ export class AuthService {
 
     const BASE_URL = this.configService.get<string>('WEBSTORE_URL');
     const resetUrl = `${BASE_URL}/reset-password?token=${resetToken}`;
-    await this.emailService.sendResetPasswordEmail(
-      email,
-      resetUrl,
-      user.name, // Asumsi Anda mengambil nama pengguna saat mencari user
-    );
+    // await this.emailService.sendResetPasswordEmail(
+    //   email,
+    //   resetUrl,
+    //   user.name, // Asumsi Anda mengambil nama pengguna saat mencari user
+    // );
 
     return {
       success: true,

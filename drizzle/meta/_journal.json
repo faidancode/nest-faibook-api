@@ -8,6 +8,34 @@
       "when": 1766417852181,
       "tag": "0000_equal_red_ghost",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1766583252227,
+      "tag": "0001_fat_deathbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1766583487123,
+      "tag": "0002_daily_skreet",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1766583518339,
+      "tag": "0003_many_hellcat",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1766585555085,
+      "tag": "0004_white_crusher_hogan",
+      "breakpoints": true
     }
   ]
 }

@@ -53,6 +53,8 @@ export class MidtransService {
     };
     const tx = await this.snap.createTransaction(transactionParams);
     // tx biasanya berisi { token, redirect_url }
+    console.log("{tx midtrans service}")
+    console.log({tx})
     return {
       snapToken: tx.token,
       redirectUrl: tx.redirect_url,
