@@ -55,6 +55,10 @@ export class OrdersMidtransController {
     this.verifySignature(payload);
     console.log({ payload });
 
+    const summary = await this.ordersService.getOrderSummaryByOrderNumber(
+      payload.order_id,
+    );
+
     const shouldMarkPaid =
       payload.transaction_status === 'settlement' ||
       (payload.transaction_status === 'capture' &&
@@ -64,10 +68,11 @@ export class OrdersMidtransController {
       return { success: true };
     }
 
+    if (payload.transaction_status === 'expire') {
+      await this.ordersService.cancelOrderBySystem(payload.order_id);
+    }
+
     const amountCents = this.parseGrossAmount(payload.gross_amount);
-    const summary = await this.ordersService.getOrderSummaryByOrderNumber(
-      payload.order_id,
-    );
 
     const expectedGross = Math.max(
       0,

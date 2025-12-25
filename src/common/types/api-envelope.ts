@@ -9,5 +9,5 @@ export type PaginationMeta = {
   total?: number;
   totalPages?: number;
   page?: number;
-  limit?: number;
+  pageSize?: number;
 };

@@ -1,8 +1,19 @@
-import { Body, Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import {
   AdminListOrdersQuerySchema,
   AdminUpdateStatusSchema,
+  OrderOutput,
   UpdatePaymentStatusSchema,
 } from './schemas/orders.schemas';
 import { JwtAuthGuard } from '../auth/jwt.guard';
@@ -11,7 +22,7 @@ import { Roles } from '../auth/roles.decorator';
 
 @Controller('v1/admin/orders')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('SUPERADMIN','ADMIN')
+@Roles('SUPERADMIN', 'ADMIN')
 export class OrdersAdminController {
   constructor(private readonly ordersService: OrdersService) {}
 
@@ -46,5 +57,13 @@ export class OrdersAdminController {
   @Patch(':id/delivered')
   async markDelivered(@Param('id') id: string) {
     return this.ordersService.markShippedOrderAsDelivered(id);
+  }
+
+  @Post(':id/cancel/customer')
+  async cancelOrderByCustomer(
+    @Param('id') orderId: string,
+    @Req() req: Request,
+  ): Promise<OrderOutput> {
+    return this.ordersService.cancelOrderByAdmin(orderId);
   }
 }

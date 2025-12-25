@@ -110,8 +110,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       };
     }
 
+    const isProd = process.env.NODE_ENV === 'production';
+
     // Tambah requestId kalau ada
-    if (requestId) {
+    if (requestId && !isProd) {
       error = {
         ...error,
         details: {

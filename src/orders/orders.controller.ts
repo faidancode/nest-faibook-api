@@ -18,6 +18,7 @@ import { OrdersService } from './orders.service';
 import {
   CheckoutOrderSchema,
   CustomerUpdateStatusSchema,
+  OrderOutput,
   UserListOrdersQuerySchema,
 } from './schemas/orders.schemas';
 import { JwtAuthGuard } from '../auth/jwt.guard';
@@ -57,7 +58,10 @@ export class OrdersController {
   @Get(':id')
   async getDetails(@Param('id') id: string, @Req() req: Request) {
     const currentUser = req.user as JwtPayload;
-    const scopedUserId = currentUser.role === 'ADMIN' || currentUser.role === 'SUPERADMIN' ? undefined : currentUser.sub;
+    const scopedUserId =
+      currentUser.role === 'ADMIN' || currentUser.role === 'SUPERADMIN'
+        ? undefined
+        : currentUser.sub;
     return this.ordersService.getOrderDetails(id, scopedUserId);
   }
 
@@ -65,7 +69,10 @@ export class OrdersController {
   @Post(':id/continue-payment')
   async continuePayment(@Param('id') id: string, @Req() req: Request) {
     const currentUser = req.user as JwtPayload;
-    const scopedUserId = currentUser.role === 'ADMIN' || currentUser.role === 'SUPERADMIN' ? undefined : currentUser.sub;
+    const scopedUserId =
+      currentUser.role === 'ADMIN' || currentUser.role === 'SUPERADMIN'
+        ? undefined
+        : currentUser.sub;
     return this.ordersService.createMidtransTransactionToken(id, scopedUserId);
   }
 
@@ -94,10 +101,17 @@ export class OrdersController {
   ) {
     const parsed = CustomerUpdateStatusSchema.parse(body ?? {});
     const currentUser = req.user as JwtPayload;
-    return this.ordersService.updateCustomerStatus(
-      id,
-      currentUser.sub,
-      parsed,
-    );
+    return this.ordersService.updateCustomerStatus(id, currentUser.sub, parsed);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/cancel/customer')
+  async cancelOrderByCustomer(
+    @Param('id') orderId: string,
+    @Req() req: Request,
+  ): Promise<OrderOutput> {
+    const user = req.user as JwtPayload;
+
+    return this.ordersService.cancelOrderByCustomer(orderId, user.sub);
   }
 }

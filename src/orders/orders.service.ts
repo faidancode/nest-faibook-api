@@ -101,6 +101,8 @@ const paymentStatusTransitions: Record<PaymentStatus, PaymentStatus[]> = {
   REFUNDED: [],
 };
 
+type CancelReason = 'PAYMENT_EXPIRED' | 'USER_CANCEL' | 'ADMIN_CANCEL';
+
 @Injectable()
 export class OrdersService {
   private readonly idempotencyCache = new Map<string, string>();
@@ -1126,5 +1128,73 @@ export class OrdersService {
   ): Promise<OrderOutput> {
     const order = await this.findOrderRowByOrderNumber(orderNumber);
     return this.applyPaymentStatusTransition(order, input);
+  }
+
+  async cancelOrderById(
+    orderId: string,
+    reason: CancelReason = 'ADMIN_CANCEL',
+  ) {
+    const order = await this.findOrderRow(orderId);
+
+    return this.cancelOrderInternal(order, reason);
+  }
+
+  async cancelOrderByOrderNumber(
+    orderNumber: string,
+    reason: CancelReason = 'PAYMENT_EXPIRED',
+  ) {
+    const order = await this.findOrderRowByOrderNumber(orderNumber);
+
+    return this.cancelOrderInternal(order, reason);
+  }
+
+  async cancelOrderByCustomer(orderId: string, userId: string) {
+    const order = await this.findOrderRow(orderId, userId);
+
+    return this.cancelOrderInternal(order, 'USER_CANCEL');
+  }
+
+  async cancelOrderByAdmin(orderId: string) {
+    const order = await this.findOrderRow(orderId);
+
+    return this.cancelOrderInternal(order, 'ADMIN_CANCEL');
+  }
+
+  async cancelOrderBySystem(orderNumber: string) {
+    const order = await this.findOrderRowByOrderNumber(orderNumber);
+
+    return this.cancelOrderInternal(order, 'PAYMENT_EXPIRED');
+  }
+
+  private async cancelOrderInternal(
+    order: OrderRow | null,
+    reason: CancelReason,
+  ): Promise<OrderOutput> {
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    // idempotent
+    if (order.status === 'CANCELLED') {
+      return this.getOrderDetails(order.id, undefined);
+    }
+
+    // prevent cancelling paid order
+    if (order.paymentStatus === 'PAID') {
+      throw new BadRequestException('Paid order cannot be cancelled');
+    }
+
+    await this.db
+      .update(schema.orders)
+      .set({
+        status: 'CANCELLED',
+        paymentStatus:
+          reason === 'PAYMENT_EXPIRED' ? 'EXPIRED' : order.paymentStatus,
+        cancelledAt: new Date(),
+        cancelReason: reason,
+      })
+      .where(eq(schema.orders.id, order.id));
+
+    return this.getOrderDetails(order.id, undefined);
   }
 }
