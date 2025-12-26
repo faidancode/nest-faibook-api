@@ -33,10 +33,25 @@ export const JwtPayloadSchema = z.object({
 
 export type JwtPayload = z.infer<typeof JwtPayloadSchema>;
 
+export const RequestEmailConfirmationSchema = z.object({
+  email: z.email(),
+});
+
+export const ConfirmEmailByTokenSchema = z.object({
+  token: z.string(),
+});
+
+export const ConfirmEmailByPinSchema = z.object({
+  email: z.email(),
+  pin: z.string().length(6),
+});
+
 export const RequestPasswordResetSchema = z.object({
   email: z.email(),
 });
-export type RequestPasswordResetInput = z.infer<typeof RequestPasswordResetSchema>;
+export type RequestPasswordResetInput = z.infer<
+  typeof RequestPasswordResetSchema
+>;
 
 export const ResetPasswordSchema = z.object({
   token: z.string().min(1),

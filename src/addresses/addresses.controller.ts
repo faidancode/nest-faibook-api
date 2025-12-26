@@ -83,7 +83,7 @@ export class AddressesController {
 
   @Delete('customer/:id')
   @UseGuards(JwtAuthGuard)
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @HttpCode(HttpStatus.OK)
   async removeCustomer(@Param('id') id: string, @Body() body: unknown) {
     const parsed = AddressOwnerSchema.parse(body);
     await this.addressesService.remove(id, parsed.userId);

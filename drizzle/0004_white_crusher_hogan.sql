@@ -1,1 +1,0 @@
-ALTER TABLE `orders` MODIFY COLUMN `paymentMethod` varchar(16);

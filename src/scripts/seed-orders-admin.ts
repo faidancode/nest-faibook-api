@@ -56,7 +56,7 @@ async function fetchCustomers(db: MySql2Database<typeof schema>) {
   return customers;
 }
 
-async function fetchBooks(db: MySql2Database<typeof schema>, limit = 25) {
+async function fetchBooks(db: MySql2Database<typeof schema>, limit = 8) {
   const books = await db
     .select({
       id: schema.books.id,

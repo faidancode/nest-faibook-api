@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Query,
   Req,
   Res,
   UnauthorizedException,
@@ -25,6 +26,9 @@ import {
   type RequestPasswordResetInput,
   ResetPasswordSchema,
   type ResetPasswordInput,
+  RequestEmailConfirmationSchema,
+  ConfirmEmailByTokenSchema,
+  ConfirmEmailByPinSchema,
 } from './auth.schemas';
 import { ok, fail } from '../common/http/response';
 import { JwtAuthGuard } from './jwt.guard';
@@ -83,7 +87,10 @@ export class AuthController {
     const parsed: RegisterInput = RegisterSchema.parse(body);
 
     const { accessToken, refreshToken, role, userId, user } =
-      await this.authService.register(parsed);
+      await this.authService.register(
+        parsed,
+        isWebClient(clientType) ? 'Web' : 'Mobile',
+      );
 
     if (isWebClient(clientType)) {
       const isProd = process.env.NODE_ENV === 'production';
@@ -286,6 +293,59 @@ export class AuthController {
   async me(@Req() req: Request & { user: JwtPayload }) {
     const result = await this.authService.getMe(req.user.sub);
     return ok(result);
+  }
+
+  @Post('request-email-confirmation')
+  @HttpCode(HttpStatus.OK)
+  async requestEmailConfirmation(
+    @Headers('x-client-type') clientHeader: string | undefined,
+    @Headers('user-agent') userAgentHeader: string | undefined,
+    @Body(new ZodValidationPipe(RequestEmailConfirmationSchema))
+    parsed: {
+      email: string;
+    },
+  ) {
+    const clientType = resolveClientType(clientHeader, userAgentHeader);
+    const type = isWebClient(clientType) ? 'Web' : 'Mobile';
+    const result = await this.authService.requestEmailConfirmation(
+      parsed.email,
+      type,
+    );
+
+    return ok({
+      success: result.success,
+      emailSent: result.emailSent,
+      message:
+        result.message ??
+        'If the email is registered, a confirmation link has been sent.',
+    });
+  }
+
+  @Get('confirm-email')
+  @HttpCode(HttpStatus.OK)
+  async confirmEmailByToken(@Query('token') token: string) {
+    const parsed = ConfirmEmailByTokenSchema.parse({ token });
+
+    const result = await this.authService.confirmEmailByToken(parsed.token);
+
+    return ok({ success: result.success, message: result.message });
+  }
+
+  @Post('confirm-email-pin')
+  @HttpCode(HttpStatus.OK)
+  async confirmEmailByPin(
+    @Body(new ZodValidationPipe(ConfirmEmailByPinSchema))
+    parsed: {
+      email: string;
+      pin: string;
+    },
+  ) {
+    const result = await this.authService.confirmEmailByPin(
+      parsed.email,
+      parsed.pin,
+    );
+
+    return ok({ success: result.success, message: result.message });
   }
 
   @Post('request-password-reset')

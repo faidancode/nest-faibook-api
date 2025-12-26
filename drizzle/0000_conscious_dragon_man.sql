@@ -91,6 +91,18 @@ CREATE TABLE `categories` (
 	CONSTRAINT `categories_slug_unique` UNIQUE(`slug`)
 );
 --> statement-breakpoint
+CREATE TABLE `email_confirmation_tokens` (
+	`id` varchar(36) NOT NULL,
+	`token` varchar(255) NOT NULL,
+	`pin` varchar(6) NOT NULL,
+	`user_id` varchar(36) NOT NULL,
+	`expires_at` timestamp NOT NULL,
+	`created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	CONSTRAINT `email_confirmation_tokens_id` PRIMARY KEY(`id`),
+	CONSTRAINT `email_confirmation_tokens_token_unique` UNIQUE(`token`),
+	CONSTRAINT `email_confirmation_tokens_pin_unique` UNIQUE(`pin`)
+);
+--> statement-breakpoint
 CREATE TABLE `hero_carousel` (
 	`id` varchar(36) NOT NULL,
 	`imageUrl` varchar(255) NOT NULL,
@@ -122,7 +134,7 @@ CREATE TABLE `orders` (
 	`orderNumber` varchar(32),
 	`userId` varchar(36) NOT NULL,
 	`status` varchar(16) NOT NULL DEFAULT 'PENDING',
-	`paymentMethod` varchar(16) NOT NULL DEFAULT 'VA',
+	`paymentMethod` varchar(32),
 	`paymentStatus` varchar(16) NOT NULL DEFAULT 'UNPAID',
 	`addressSnapshot` json NOT NULL,
 	`subtotalCents` int NOT NULL,
@@ -133,8 +145,13 @@ CREATE TABLE `orders` (
 	`placedAt` datetime NOT NULL,
 	`paidAt` datetime,
 	`cancelledAt` datetime,
+	`cancelReason` varchar(100),
 	`completedAt` datetime,
 	`receipt_no` varchar(50),
+	`midtransOrderId` varchar(50) NOT NULL,
+	`snapToken` varchar(255),
+	`snapRedirectUrl` varchar(255),
+	`snapTokenExpiredAt` datetime,
 	`created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	`updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 	`deletedAt` datetime,
@@ -174,6 +191,7 @@ CREATE TABLE `users` (
 	`phone` varchar(30),
 	`passwordHash` varchar(255) NOT NULL,
 	`isActive` boolean NOT NULL DEFAULT true,
+	`emailConfirmed` boolean NOT NULL DEFAULT false,
 	`role` enum('SUPERADMIN','ADMIN','CUSTOMER') NOT NULL,
 	`created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	`updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -207,6 +225,7 @@ ALTER TABLE `books` ADD CONSTRAINT `books_authorId_authors_id_fk` FOREIGN KEY (`
 ALTER TABLE `cart_items` ADD CONSTRAINT `cart_items_cartId_carts_id_fk` FOREIGN KEY (`cartId`) REFERENCES `carts`(`id`) ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `cart_items` ADD CONSTRAINT `cart_items_bookId_books_id_fk` FOREIGN KEY (`bookId`) REFERENCES `books`(`id`) ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `carts` ADD CONSTRAINT `carts_userId_users_id_fk` FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE `email_confirmation_tokens` ADD CONSTRAINT `email_confirmation_tokens_user_id_users_id_fk` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `order_items` ADD CONSTRAINT `order_items_orderId_orders_id_fk` FOREIGN KEY (`orderId`) REFERENCES `orders`(`id`) ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `order_items` ADD CONSTRAINT `order_items_bookId_books_id_fk` FOREIGN KEY (`bookId`) REFERENCES `books`(`id`) ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `orders` ADD CONSTRAINT `orders_userId_users_id_fk` FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -222,6 +241,9 @@ CREATE INDEX `idx_books_category_active` ON `books` (`categoryId`,`isActive`);--
 CREATE INDEX `idx_books_title` ON `books` (`title`);--> statement-breakpoint
 CREATE INDEX `idx_books_isbn` ON `books` (`isbn`);--> statement-breakpoint
 CREATE INDEX `idx_categories_name` ON `categories` (`name`);--> statement-breakpoint
+CREATE INDEX `token_idx` ON `email_confirmation_tokens` (`token`);--> statement-breakpoint
+CREATE INDEX `pin_idx` ON `email_confirmation_tokens` (`pin`);--> statement-breakpoint
+CREATE INDEX `user_id_idx` ON `email_confirmation_tokens` (`user_id`);--> statement-breakpoint
 CREATE INDEX `idx_hero_active_sort` ON `hero_carousel` (`isActive`,`sortOrder`);--> statement-breakpoint
 CREATE INDEX `idx_order_items_order` ON `order_items` (`orderId`);--> statement-breakpoint
 CREATE INDEX `idx_orders_user_status` ON `orders` (`userId`,`status`);--> statement-breakpoint

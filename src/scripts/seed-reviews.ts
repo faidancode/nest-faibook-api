@@ -106,7 +106,7 @@ async function main() {
     .select({ id: schema.books.id })
     .from(schema.books)
     .where(sql`${schema.books.deletedAt} IS NULL`)
-    .limit(12);
+    .limit(8);
 
   if (books.length === 0) {
     console.log('No books found. Skipping review seeding.');

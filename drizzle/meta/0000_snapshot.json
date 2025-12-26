@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "0e76ab87-cdea-463e-8b9f-2e285753994c",
+  "id": "8f95c7a2-424c-4bbe-a0e9-5cc30116d0f9",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "addresses": {
@@ -742,6 +742,115 @@
       },
       "checkConstraint": {}
     },
+    "email_confirmation_tokens": {
+      "name": "email_confirmation_tokens",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(36)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "token": {
+          "name": "token",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "pin": {
+          "name": "pin",
+          "type": "varchar(6)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "varchar(36)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {
+        "token_idx": {
+          "name": "token_idx",
+          "columns": [
+            "token"
+          ],
+          "isUnique": false
+        },
+        "pin_idx": {
+          "name": "pin_idx",
+          "columns": [
+            "pin"
+          ],
+          "isUnique": false
+        },
+        "user_id_idx": {
+          "name": "user_id_idx",
+          "columns": [
+            "user_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "email_confirmation_tokens_user_id_users_id_fk": {
+          "name": "email_confirmation_tokens_user_id_users_id_fk",
+          "tableFrom": "email_confirmation_tokens",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "email_confirmation_tokens_id": {
+          "name": "email_confirmation_tokens_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "email_confirmation_tokens_token_unique": {
+          "name": "email_confirmation_tokens_token_unique",
+          "columns": [
+            "token"
+          ]
+        },
+        "email_confirmation_tokens_pin_unique": {
+          "name": "email_confirmation_tokens_pin_unique",
+          "columns": [
+            "pin"
+          ]
+        }
+      },
+      "checkConstraint": {}
+    },
     "hero_carousel": {
       "name": "hero_carousel",
       "columns": {
@@ -987,11 +1096,10 @@
         },
         "paymentMethod": {
           "name": "paymentMethod",
-          "type": "varchar(16)",
+          "type": "varchar(32)",
           "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'VA'"
+          "notNull": false,
+          "autoincrement": false
         },
         "paymentStatus": {
           "name": "paymentStatus",
@@ -1066,6 +1174,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "cancelReason": {
+          "name": "cancelReason",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "completedAt": {
           "name": "completedAt",
           "type": "datetime",
@@ -1076,6 +1191,34 @@
         "receipt_no": {
           "name": "receipt_no",
           "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "midtransOrderId": {
+          "name": "midtransOrderId",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "snapToken": {
+          "name": "snapToken",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "snapRedirectUrl": {
+          "name": "snapRedirectUrl",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "snapTokenExpiredAt": {
+          "name": "snapTokenExpiredAt",
+          "type": "datetime",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
@@ -1420,6 +1563,14 @@
           "notNull": true,
           "autoincrement": false,
           "default": true
+        },
+        "emailConfirmed": {
+          "name": "emailConfirmed",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
         },
         "role": {
           "name": "role",

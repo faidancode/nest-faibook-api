@@ -86,7 +86,13 @@ export class AuthService {
     console.log({ dto });
     const user = await this.validateUser(dto.email, dto.password);
 
-    console.log({ user });
+    // 🔒 BLOCK HERE
+    if (!user.emailConfirmed) {
+      throw new UnauthorizedException({
+        code: 'EMAIL_NOT_CONFIRMED',
+        message: 'Please confirm your email before logging in.',
+      });
+    }
     const accessToken = await this.signAccessToken({
       id: user.id,
       email: user.email,
@@ -107,7 +113,11 @@ export class AuthService {
     };
   }
 
-  async register(dto: RegisterInput) {
+  async register(dto: RegisterInput, clientType: 'Web' | 'Mobile') {
+    // 1. create user
+    // 2. generate token
+    // 3. send confirmation email
+    // 4. return auth response
     const existing = await this.db.query.users.findFirst({
       where: eq(schema.users.email, dto.email),
       columns: { id: true },
@@ -129,7 +139,10 @@ export class AuthService {
       phone: dto.phone ?? null,
       passwordHash,
       role,
+      emailConfirmed: false,
     });
+
+    await this.requestEmailConfirmation(dto.email, clientType);
 
     const accessToken = await this.signAccessToken({
       id: userId,
@@ -291,11 +304,11 @@ export class AuthService {
 
     const BASE_URL = this.configService.get<string>('WEBSTORE_URL');
     const resetUrl = `${BASE_URL}/reset-password?token=${resetToken}`;
-    // await this.emailService.sendResetPasswordEmail(
-    //   email,
-    //   resetUrl,
-    //   user.name, // Asumsi Anda mengambil nama pengguna saat mencari user
-    // );
+    await this.emailService.sendResetPasswordEmail(
+      email,
+      resetUrl,
+      user.name, // Asumsi Anda mengambil nama pengguna saat mencari user
+    );
 
     return {
       success: true,
@@ -375,5 +388,178 @@ export class AuthService {
       success: true,
       message: 'Password has been reset successfully.',
     };
+  }
+
+  async requestEmailConfirmation(email: string, clientType: 'Web' | 'Mobile') {
+    const user = await this.db.query.users.findFirst({
+      where: eq(schema.users.email, email),
+      columns: { id: true, name: true, emailConfirmed: true },
+    });
+
+    if (!user) {
+      return { success: true, emailSent: false };
+    }
+
+    if (user.emailConfirmed) {
+      return {
+        success: true,
+        emailSent: false,
+        message: 'Email is already confirmed.',
+      };
+    }
+
+    const existingToken = await this.db.query.emailConfirmationTokens.findFirst(
+      {
+        where: eq(schema.emailConfirmationTokens.userId, user.id),
+        orderBy: desc(schema.emailConfirmationTokens.createdAt),
+      },
+    );
+
+    const now = new Date();
+
+    if (existingToken && existingToken.createdAt) {
+      const diffMinutes =
+        (now.getTime() - new Date(existingToken.createdAt).getTime()) / 60000;
+      if (diffMinutes < 10 && new Date(existingToken.expiresAt) > now) {
+        return {
+          success: true,
+          emailSent: false,
+          message:
+            'A confirmation email was recently sent. Please check your inbox or try again later.',
+        };
+      }
+    }
+
+    const token = randomUUID();
+    const pin = Math.floor(100000 + Math.random() * 900000).toString(); // 6 digit pin
+    const expiresAt = addMinutes(now, 60);
+
+    await this.db
+      .insert(schema.emailConfirmationTokens)
+      .values({
+        id: randomUUID(),
+        userId: user.id,
+        token,
+        pin,
+        expiresAt,
+        createdAt: now,
+      })
+      .onDuplicateKeyUpdate({
+        set: { token, pin, expiresAt, createdAt: now },
+      });
+
+    const baseUrl = this.configService.get<string>('WEBSTORE_URL');
+    const confirmUrl = `${baseUrl}/verify-email?token=${token}`;
+
+    if (clientType === 'Web') {
+      await this.emailService.sendEmailConfirmationLink(
+        email,
+        user.name,
+        clientType,
+        confirmUrl,
+      );
+    }
+
+    if (clientType === 'Mobile') {
+      await this.emailService.sendEmailConfirmationPin(email, clientType, pin!);
+    }
+
+    return { success: true, emailSent: true };
+  }
+
+  async confirmEmailByToken(token: string) {
+    const record = await this.db.query.emailConfirmationTokens.findFirst({
+      where: eq(schema.emailConfirmationTokens.token, token),
+    });
+
+    if (!record) {
+      throw new UnauthorizedException({
+        success: false,
+        code: 'CONFIRMATION_TOKEN_INVALID',
+        message: 'Email confirmation link is invalid or has expired.',
+      });
+    }
+
+    if (isAfter(new Date(), new Date(record.expiresAt))) {
+      await this.db
+        .delete(schema.emailConfirmationTokens)
+        .where(eq(schema.emailConfirmationTokens.token, token));
+
+      throw new UnauthorizedException({
+        success: false,
+        code: 'CONFIRMATION_TOKEN_EXPIRED',
+        message:
+          'Email confirmation link has expired. Please request a new one.',
+      });
+    }
+
+    await this.db
+      .update(schema.users)
+      .set({ emailConfirmed: true, updatedAt: new Date() })
+      .where(eq(schema.users.id, record.userId));
+
+    await this.db
+      .delete(schema.emailConfirmationTokens)
+      .where(eq(schema.emailConfirmationTokens.token, token));
+
+    return { success: true, message: 'Email has been successfully confirmed.' };
+  }
+
+  async confirmEmailByPin(email: string, pin: string) {
+    const user = await this.db.query.users.findFirst({
+      where: eq(schema.users.email, email),
+      columns: { id: true, emailConfirmed: true },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException({
+        success: false,
+        code: 'USER_NOT_FOUND',
+        message: 'User not found.',
+      });
+    }
+
+    if (user.emailConfirmed) {
+      return {
+        success: true,
+        message: 'Email is already confirmed.',
+      };
+    }
+
+    const record = await this.db.query.emailConfirmationTokens.findFirst({
+      where: eq(schema.emailConfirmationTokens.userId, user.id),
+      orderBy: desc(schema.emailConfirmationTokens.createdAt),
+    });
+
+    if (!record || record.pin !== pin) {
+      throw new UnauthorizedException({
+        success: false,
+        code: 'PIN_INVALID',
+        message: 'Invalid confirmation PIN.',
+      });
+    }
+
+    if (isAfter(new Date(), new Date(record.expiresAt))) {
+      await this.db
+        .delete(schema.emailConfirmationTokens)
+        .where(eq(schema.emailConfirmationTokens.pin, pin));
+
+      throw new UnauthorizedException({
+        success: false,
+        code: 'PIN_EXPIRED',
+        message: 'Confirmation PIN has expired. Please request a new one.',
+      });
+    }
+
+    await this.db
+      .update(schema.users)
+      .set({ emailConfirmed: true, updatedAt: new Date() })
+      .where(eq(schema.users.id, user.id));
+
+    await this.db
+      .delete(schema.emailConfirmationTokens)
+      .where(eq(schema.emailConfirmationTokens.pin, pin));
+
+    return { success: true, message: 'Email has been successfully confirmed.' };
   }
 }

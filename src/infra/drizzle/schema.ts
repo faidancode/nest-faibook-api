@@ -44,6 +44,7 @@ export const users = mysqlTable('users', {
   phone: varchar('phone', { length: 30 }),
   passwordHash: varchar('passwordHash', { length: 255 }).notNull(),
   isActive: boolean('isActive').notNull().default(true),
+  emailConfirmed: boolean('emailConfirmed').notNull().default(false),
   role: mysqlEnum('role', ['SUPERADMIN', 'ADMIN', 'CUSTOMER']).notNull(),
 
   ...timestamps,
@@ -360,6 +361,32 @@ export const passwordResetTokens = mysqlTable(
   },
   (table) => [
     index('token_idx').on(table.token),
+    index('user_id_idx').on(table.userId),
+  ],
+);
+
+export const emailConfirmationTokens = mysqlTable(
+  'email_confirmation_tokens',
+  {
+    id: uuid('id').primaryKey(),
+    token: varchar('token', { length: 255 }).notNull().unique(),
+    pin: varchar('pin', { length: 6 }).notNull().unique(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    expiresAt: timestamp('expires_at', {
+      mode: 'date',
+    }).notNull(),
+
+    createdAt: timestamp('created_at', {
+      mode: 'date',
+    })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index('token_idx').on(table.token),
+    index('pin_idx').on(table.pin),
     index('user_id_idx').on(table.userId),
   ],
 );
