@@ -22,18 +22,29 @@ import { ok, fail } from '../common/http/response';
 import { JwtAuthGuard } from './jwt.guard';
 import { UseGuards } from '@nestjs/common';
 
-type ClientType = 'web' | 'mobile';
+export type ClientType = 'admin-web' | 'customer-web' | 'mobile';
 
 function resolveClientType(headerValue?: string): ClientType {
-  if (!headerValue) return 'web';
+  if (!headerValue) return 'customer-web';
+
   const v = headerValue.toLowerCase();
-  return v === 'mobile' ? 'mobile' : 'web';
+
+  if (v === 'admin-web') return 'admin-web';
+  if (v === 'customer-web') return 'customer-web';
+  if (v === 'mobile') return 'mobile';
+
+  return 'customer-web'; // default aman
 }
+
+function isWebClient(clientType: ClientType) {
+  return clientType == 'admin-web' || clientType === 'customer-web';
+}
+
 
 @Controller('v1/auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
-
+  
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   async register(
@@ -47,21 +58,21 @@ export class AuthController {
     const { accessToken, refreshToken, role, userId } =
       await this.authService.register(parsed);
 
-    if (clientType === 'web') {
+    if (isWebClient(clientType)) {
       const isProd = process.env.NODE_ENV === 'production';
 
       res.cookie('accessToken', accessToken, {
         httpOnly: true,
-        secure: isProd, 
-        sameSite: isProd ? "none" : 'lax',
+        secure: isProd,
+        sameSite: isProd ? 'none' : 'lax',
         maxAge: 15 * 60 * 1000,
         path: '/',
       });
 
       res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
-        secure: isProd, 
-        sameSite: isProd ? "none" : 'lax',
+        secure: isProd,
+        sameSite: isProd ? 'none' : 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000,
         path: '/',
       });
@@ -93,14 +104,14 @@ export class AuthController {
     const { accessToken, refreshToken, role, userId, user } =
       await this.authService.login(parsed);
 
-    if (clientType === 'web') {
+    if (isWebClient(clientType)) {
       const isProd = process.env.NODE_ENV === 'production';
 
       // Access token cookie (boleh lebih pendek)
       res.cookie('accessToken', accessToken, {
         httpOnly: true,
-        secure: isProd, 
-        sameSite: isProd ? "none" : 'lax',
+        secure: isProd,
+        sameSite: isProd ? 'none' : 'lax',
         maxAge: 15 * 60 * 1000, // 15 menit
         path: '/',
       });
@@ -108,8 +119,8 @@ export class AuthController {
       // Refresh token cookie
       res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
-        secure: isProd, 
-        sameSite: isProd ? "none" : 'lax',
+        secure: isProd,
+        sameSite: isProd ? 'none' : 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 hari
         path: '/',
       });
@@ -117,7 +128,7 @@ export class AuthController {
       // Body bisa minimal (frontend web opsional pakai accessToken dari body)
       return ok({
         userId,
-        user:{
+        user: {
           name: user.name, // kosongkan saja
           email: user.email,
         },
@@ -144,7 +155,7 @@ export class AuthController {
   ) {
     const clientType = resolveClientType(clientHeader);
 
-    if (clientType === 'web') {
+    if (isWebClient(clientType)) {
       const cookies = req.cookies as Record<string, unknown> | undefined;
       const refreshToken =
         typeof cookies?.refreshToken === 'string'
@@ -162,8 +173,8 @@ export class AuthController {
       // Update accessToken cookie
       res.cookie('accessToken', accessToken, {
         httpOnly: true,
-        secure: isProd, 
-        sameSite: isProd ? "none" : 'lax',
+        secure: isProd,
+        sameSite: isProd ? 'none' : 'lax',
         maxAge: 15 * 60 * 1000,
         path: '/',
       });
@@ -199,7 +210,7 @@ export class AuthController {
   ) {
     const clientType = resolveClientType(clientHeader);
 
-    if (clientType === 'web') {
+    if (isWebClient(clientType)) {
       // Hapus cookie
       res.clearCookie('accessToken', { path: '/' });
       res.clearCookie('refreshToken', { path: '/' });

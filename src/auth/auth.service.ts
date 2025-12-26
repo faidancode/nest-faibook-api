@@ -83,8 +83,10 @@ export class AuthService {
   }
 
   async login(dto: LoginInput) {
+    console.log({ dto });
     const user = await this.validateUser(dto.email, dto.password);
 
+    console.log({ user });
     const accessToken = await this.signAccessToken({
       id: user.id,
       email: user.email,
@@ -261,9 +263,7 @@ export class AuthService {
 
       if (diffMinutes < 10 && new Date(existingToken.expiresAt) > now) {
         // Token masih aktif dan belum mencapai jeda 10 menit
-        console.log(
-          `[PASSWORD_RESET] Request terlalu sering untuk userId=${user.id}`,
-        );
+        console.log(`[PASSWORD_RESET] Request too often for userId=${user.id}`);
         return {
           success: true,
           emailSent: false,

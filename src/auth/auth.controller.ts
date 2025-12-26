@@ -31,15 +31,22 @@ import { JwtAuthGuard } from './jwt.guard';
 import { EmailService } from 'src/email/email.service';
 import { ZodValidationPipe } from 'src/common/http/zod.validation.pipe';
 
-type ClientType = 'web' | 'mobile';
+export type ClientType = 'web-admin' | 'web-customer' | 'mobile';
 
 function resolveClientType(
   clientHeader?: string,
   userAgentHeader?: string,
 ): ClientType {
   const header = clientHeader?.toLowerCase();
+
+  // 1️⃣ Explicit mobile
   if (header === 'mobile') return 'mobile';
 
+  // 2️⃣ Explicit web client
+  if (header === 'web-admin') return 'web-admin';
+  if (header === 'web-customer') return 'web-customer';
+
+  // 3️⃣ Auto-detect mobile app via User-Agent
   const ua = userAgentHeader?.toLowerCase() ?? '';
   const looksLikeMobileApp =
     ua.includes('expo') ||
@@ -49,7 +56,12 @@ function resolveClientType(
 
   if (looksLikeMobileApp) return 'mobile';
 
-  return 'web';
+  // 4️⃣ Safe default
+  return 'web-customer';
+}
+
+function isWebClient(clientType: ClientType) {
+  return clientType === 'web-admin' || clientType === 'web-customer';
 }
 
 @Controller('v1/auth')
@@ -73,7 +85,7 @@ export class AuthController {
     const { accessToken, refreshToken, role, userId, user } =
       await this.authService.register(parsed);
 
-    if (clientType === 'web') {
+    if (isWebClient(clientType)) {
       const isProd = process.env.NODE_ENV === 'production';
 
       res.cookie('accessToken', accessToken, {
@@ -128,8 +140,12 @@ export class AuthController {
 
     const { accessToken, refreshToken, role, userId, user } =
       await this.authService.login(parsed);
-    console.log({ clientType });
-    if (clientType === 'web') {
+    if (clientType === 'web-admin' && role !== 'ADMIN') {
+      throw new UnauthorizedException(
+        'You are not allowed to access admin dashboard',
+      );
+    }
+    if (isWebClient(clientType)) {
       const isProd = process.env.NODE_ENV === 'production';
 
       // Set cookies untuk web
@@ -184,7 +200,7 @@ export class AuthController {
   ) {
     const clientType = resolveClientType(clientHeader, userAgentHeader);
 
-    if (clientType === 'web') {
+    if (isWebClient(clientType)) {
       // Web: ambil refreshToken dari cookie
       const cookies = req.cookies as Record<string, unknown> | undefined;
       const refreshToken =
@@ -255,7 +271,7 @@ export class AuthController {
   ) {
     const clientType = resolveClientType(clientHeader, userAgentHeader);
 
-    if (clientType === 'web') {
+    if (isWebClient(clientType)) {
       // Hapus cookie
       res.clearCookie('accessToken', { path: '/' });
       res.clearCookie('refreshToken', { path: '/' });
@@ -278,7 +294,7 @@ export class AuthController {
     @Body(new ZodValidationPipe(RequestPasswordResetSchema))
     parsed: RequestPasswordResetInput,
   ) {
-    // SELALU response generik (anti user enumeration)
+    //(anti user enumeration)
     const result = await this.authService.requestPasswordReset(parsed.email);
 
     // Return the full result including message and emailSent flag
@@ -291,16 +307,11 @@ export class AuthController {
     });
   }
 
-  // --- NEW ENDPOINT 2: Actual Password Reset ---
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   async resetPassword(@Body() body: unknown) {
     const parsed: ResetPasswordInput = ResetPasswordSchema.parse(body);
-
-    // Di service, password akan di-hash, user diupdate, dan token dihapus.
     await this.authService.resetPassword(parsed.token, parsed.newPassword);
-
-    // Anda bisa mengirim email notifikasi password berhasil diubah di sini jika diperlukan.
 
     return ok({ message: 'Password has been successfully reset.' });
   }
