@@ -3,7 +3,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { validateEnv } from './config/env.schema';
 import { DrizzleModule } from './infra/drizzle/drizzle.module';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { GlobalRateLimitGuard } from './common/rate-limit/global-rate-limit.guard';
 import { RateLimitService } from './common/rate-limit/rate-limit.service';
 import { HealthModule } from './health/health.module';

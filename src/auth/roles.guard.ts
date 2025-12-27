@@ -18,18 +18,24 @@ export class RolesGuard implements CanActivate {
       ctx.getClass(),
     ]);
 
+    // Jika rute tidak diproteksi role, izinkan
     if (!requiredRoles || requiredRoles.length === 0) {
       return true;
     }
 
     const request = ctx.switchToHttp().getRequest();
-    const user = request.user as { role?: Role } | undefined;
+    const user = request.user;
 
-    if (!user?.role) {
-      throw new ForbiddenException('No role attached to user');
+    // Cek apakah user ada (hasil dari JwtAuthGuard)
+    if (!user || !user.role) {
+      throw new ForbiddenException('No role found in token');
     }
 
-    if (!requiredRoles.includes(user.role)) {
+    // Cek apakah role user ada di dalam array requiredRoles
+    const hasRole = requiredRoles.includes(user.role);
+
+    if (!hasRole) {
+      // Baris inilah yang menghalangi GUESTADMIN jika tidak disertakan di @Roles
       throw new ForbiddenException('Insufficient role');
     }
 

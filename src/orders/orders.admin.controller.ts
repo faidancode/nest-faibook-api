@@ -6,9 +6,9 @@ import {
   Patch,
   Post,
   Query,
-  Req,
-  UseGuards,
+  Req
 } from '@nestjs/common';
+import { AdminAuthWithDemo } from 'src/common/decorators/admin-auth-with-demo.decorator';
 import { OrdersService } from './orders.service';
 import {
   AdminListOrdersQuerySchema,
@@ -16,13 +16,9 @@ import {
   OrderOutput,
   UpdatePaymentStatusSchema,
 } from './schemas/orders.schemas';
-import { JwtAuthGuard } from '../auth/jwt.guard';
-import { RolesGuard } from '../auth/roles.guard';
-import { Roles } from '../auth/roles.decorator';
 
+@AdminAuthWithDemo()
 @Controller('v1/admin/orders')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('SUPERADMIN', 'ADMIN')
 export class OrdersAdminController {
   constructor(private readonly ordersService: OrdersService) {}
 

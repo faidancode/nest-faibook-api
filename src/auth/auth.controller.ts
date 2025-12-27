@@ -34,6 +34,7 @@ import { ok, fail } from '../common/http/response';
 import { JwtAuthGuard } from './jwt.guard';
 import { EmailService } from 'src/email/email.service';
 import { ZodValidationPipe } from 'src/common/http/zod.validation.pipe';
+import { Role } from 'src/common/constants/roles.enum';
 
 export type ClientType = 'web-admin' | 'web-customer' | 'mobile';
 
@@ -147,9 +148,16 @@ export class AuthController {
 
     const { accessToken, refreshToken, role, userId, user } =
       await this.authService.login(parsed);
-    if (clientType === 'web-admin' && role !== 'ADMIN') {
+
+    const allowedAdminRoles: string[] = [
+      Role.SUPERADMIN,
+      Role.ADMIN,
+      Role.GUESTADMIN,
+    ];
+
+    if (clientType === 'web-admin' && !allowedAdminRoles.includes(role)) {
       throw new UnauthorizedException(
-        'You are not allowed to access admin dashboard',
+        'You are not allowed to access the admin dashboard',
       );
     }
     if (isWebClient(clientType)) {

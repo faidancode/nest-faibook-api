@@ -11,10 +11,10 @@ import {
   SummaryQuerySchema,
   TopBooksQuerySchema,
 } from './dashboard.schemas';
+import { AdminAuthWithDemo } from 'src/common/decorators/admin-auth-with-demo.decorator';
 
 @Controller('v1/admin/dashboard')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('SUPERADMIN','ADMIN')
+@AdminAuthWithDemo()
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 

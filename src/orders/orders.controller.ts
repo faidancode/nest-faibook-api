@@ -29,7 +29,11 @@ export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   private assertUserAccess(user: JwtPayload, requestedUserId: string) {
-    if (user.role === 'ADMIN' || user.role === 'SUPERADMIN') {
+    if (
+      user.role === 'ADMIN' ||
+      user.role === 'SUPERADMIN' ||
+      user.role === 'GUESTADMIN'
+    ) {
       return;
     }
 

@@ -26,10 +26,10 @@ import {
   UpdateBookSchema,
 } from './books.schemas';
 import { BooksService } from './books.service';
+import { AdminAuthWithDemo } from 'src/common/decorators/admin-auth-with-demo.decorator';
 
+@AdminAuthWithDemo()
 @Controller('v1/admin/books')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('SUPERADMIN', 'ADMIN')
 export class BooksAdminController {
   constructor(
     private readonly booksService: BooksService,

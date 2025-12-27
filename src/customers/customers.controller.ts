@@ -1,14 +1,11 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
-import { CustomersService } from './customers.service';
+import { Controller, Get, Param, Query } from '@nestjs/common';
+import { AdminAuthWithDemo } from 'src/common/decorators/admin-auth-with-demo.decorator';
 import { ListCustomersQuerySchema } from './customers.schemas';
-import { JwtAuthGuard } from '../auth/jwt.guard';
-import { RolesGuard } from '../auth/roles.guard';
-import { Roles } from '../auth/roles.decorator';
+import { CustomersService } from './customers.service';
 
+@AdminAuthWithDemo()
 @Controller('v1/admin/customers')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('SUPERADMIN', 'ADMIN')
-export class CustomersController {
+export class CustomersController {  
   constructor(private readonly customersService: CustomersService) {}
 
   @Get()
