@@ -19,6 +19,7 @@ import {
   ListBooksQuerySchema
 } from './books.schemas';
 import { BooksService } from './books.service';
+import { SkipRateLimit } from 'src/common/rate-limit/rate-limit-decorator';
 
 @Controller('v1/books')
 export class BooksController {
@@ -26,6 +27,7 @@ export class BooksController {
     private readonly booksService: BooksService,
   ) {}
 
+  @SkipRateLimit()
   @Get()
   async findAll(@Query() query: unknown) {
     const parsed = ListBooksQuerySchema.parse(query);

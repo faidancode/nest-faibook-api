@@ -21,11 +21,13 @@ import { ListBooksQuerySchema } from '../books/books.schemas';
 import { JwtAuthGuard } from '../auth/jwt.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { SkipRateLimit } from 'src/common/rate-limit/rate-limit-decorator';
 
 @Controller('v1/categories')
 export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
+  @SkipRateLimit()
   @Get()
   async findAll(@Query() query: unknown) {
     const parsed = ListCategoriesQuerySchema.parse(query);

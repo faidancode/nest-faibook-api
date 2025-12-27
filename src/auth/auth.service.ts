@@ -467,6 +467,93 @@ export class AuthService {
     return { success: true, emailSent: true };
   }
 
+  async resendEmailConfirmation(email: string, clientType: 'Web' | 'Mobile') {
+    const user = await this.db.query.users.findFirst({
+      where: eq(schema.users.email, email),
+      columns: { id: true, name: true, emailConfirmed: true },
+    });
+
+    // 🔐 Anti email enumeration
+    if (!user) {
+      return { success: true, emailSent: false };
+    }
+
+    if (user.emailConfirmed) {
+      return {
+        success: true,
+        emailSent: false,
+        message: 'Email is already confirmed.',
+      };
+    }
+
+    const now = new Date();
+
+    const existingToken = await this.db.query.emailConfirmationTokens.findFirst(
+      {
+        where: eq(schema.emailConfirmationTokens.userId, user.id),
+        orderBy: desc(schema.emailConfirmationTokens.createdAt),
+      },
+    );
+
+    // ⏱️ Throttle: 10 menit
+    if (existingToken) {
+      const diffMinutes =
+        (now.getTime() - new Date(existingToken.createdAt).getTime()) / 60000;
+
+      if (diffMinutes < 10 && new Date(existingToken.expiresAt) > now) {
+        return {
+          success: true,
+          emailSent: false,
+          message:
+            'A confirmation email was recently sent. Please check your inbox or try again later.',
+        };
+      }
+    }
+
+    // ⛔ Invalidate all previous confirmation tokens for this user
+    await this.db
+      .delete(schema.emailConfirmationTokens)
+      .where(eq(schema.emailConfirmationTokens.userId, user.id));
+
+    // 🔑 Generate ulang
+    const token = randomUUID();
+    const pin = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = addMinutes(now, 60);
+
+    await this.db
+      .insert(schema.emailConfirmationTokens)
+      .values({
+        id: randomUUID(),
+        userId: user.id,
+        token,
+        pin,
+        expiresAt,
+        createdAt: now,
+      })
+      .onDuplicateKeyUpdate({
+        set: { token, pin, expiresAt, createdAt: now },
+      });
+
+    // 📩 Kirim sesuai client
+    if (clientType === 'Web') {
+      const baseUrl = this.configService.get<string>('WEBSTORE_URL');
+      const confirmUrl = `${baseUrl}/verify-email?token=${token}`;
+
+      await this.emailService.sendEmailConfirmationLink(
+        email,
+        user.name,
+        clientType,
+        confirmUrl,
+      );
+    }
+
+    if (clientType === 'Mobile') {
+      await this.emailService.sendEmailConfirmationPin(email, clientType, pin);
+    }
+
+    return { success: true, emailSent: true };
+  }
+
   async confirmEmailByToken(token: string) {
     const record = await this.db.query.emailConfirmationTokens.findFirst({
       where: eq(schema.emailConfirmationTokens.token, token),
