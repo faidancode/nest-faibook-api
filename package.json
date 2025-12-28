@@ -27,7 +27,7 @@
     "seed:real-books": "ts-node src/scripts/seed-real-books.ts",
     "seed:addresses": "ts-node src/scripts/seed-addresses.ts",
     "seed:authors": "ts-node src/scripts/seed-authors.ts",
-    "seed:users": "ts-node src/scripts/seed-users.ts",
+    "seed:customers": "ts-node src/scripts/seed-customers.ts",
     "seed:reviews": "ts-node src/scripts/seed-reviews.ts",
     "seed:orders": "ts-node src/scripts/seed-orders.ts",
     "seed:orders-admin": "ts-node src/scripts/seed-orders-admin.ts"

@@ -19,7 +19,21 @@ type UserSeed = {
 };
 
 const userSeeds: UserSeed[] = [
-  { name: 'Superadmin', email: 'supadmin@faibook.com' },
+  { name: 'John Doe', email: 'john.doe@example.com' },
+  { name: 'Jane Smith', email: 'jane.smith@example.com' },
+  { name: 'Michael Johnson', email: 'michael.johnson@example.com' },
+  { name: 'Emily Davis', email: 'emily.davis@example.com' },
+  { name: 'Christopher Brown', email: 'christopher.brown@example.com' },
+  { name: 'Olivia Wilson', email: 'olivia.wilson@example.com' },
+  { name: 'Daniel Martinez', email: 'daniel.martinez@example.com' },
+  { name: 'Sophia Anderson', email: 'sophia.anderson@example.com' },
+  { name: 'Matthew Thomas', email: 'matthew.thomas@example.com' },
+  { name: 'Ava Taylor', email: 'ava.taylor@example.com' },
+  { name: 'Ethan Moore', email: 'ethan.moore@example.com' },
+  { name: 'Isabella Jackson', email: 'isabella.jackson@example.com' },
+  { name: 'Alexander White', email: 'alexander.white@example.com' },
+  { name: 'Mia Harris', email: 'mia.harris@example.com' },
+  { name: 'Benjamin Martin', email: 'benjamin.martin@example.com' },
 ];
 
 async function main() {
@@ -34,7 +48,7 @@ async function main() {
   const db = drizzle(pool, { schema, mode: 'default' });
 
   try {
-    const passwordHash = await hash('sszxczxc##1', 10);
+    const passwordHash = await hash('asdasd123f', 10);
     let inserted = 0;
 
     for (const seed of userSeeds) {
@@ -51,9 +65,9 @@ async function main() {
         name: seed.name,
         email: seed.email,
         passwordHash,
-        role: 'SUPERADMIN',
-        emailConfirmed: true,
-        isActive: true,
+        role: 'CUSTOMER',
+        emailConfirmed:true,
+        isActive:true,
       });
       inserted += 1;
     }
