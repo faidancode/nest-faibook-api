@@ -1,33 +1,34 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AuthorsController } from './authors.controller';
-import { AuthorsService } from './authors.service';
+import { CategoriesService } from './categories.service';
+import { CategoriesAdminController } from './categories.admin.controller';
 
-describe('AuthorsController', () => {
-  let controller: AuthorsController;
-  let service: jest.Mocked<AuthorsService>;
+describe('CategoriesAdminController', () => {
+  let controller: CategoriesAdminController;
+  let service: jest.Mocked<CategoriesService>;
 
   beforeEach(async () => {
-    const serviceMock: Partial<Record<keyof AuthorsService, any>> = {
+    const serviceMock: Partial<Record<keyof CategoriesService, any>> = {
       findAll: jest.fn(),
       findOne: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
       remove: jest.fn(),
-      findBooksBySlug: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      controllers: [AuthorsController],
+      controllers: [CategoriesAdminController],
       providers: [
         {
-          provide: AuthorsService,
+          provide: CategoriesService,
           useValue: serviceMock,
         },
       ],
     }).compile();
 
-    controller = module.get<AuthorsController>(AuthorsController);
-    service = module.get(AuthorsService) as jest.Mocked<AuthorsService>;
+    controller = module.get<CategoriesAdminController>(
+      CategoriesAdminController,
+    );
+    service = module.get(CategoriesService) as jest.Mocked<CategoriesService>;
   });
 
   it('should be defined', () => {
@@ -64,15 +65,15 @@ describe('AuthorsController', () => {
       page: '1',
       pageSize: '10',
       sort: 'name:asc',
-      search: 'john',
+      search: 'fik',
     });
 
     expect(service.findAll).toHaveBeenCalledWith(
-      expect.objectContaining({ search: 'john' }),
+      expect.objectContaining({ search: 'fik' }),
     );
   });
 
-  it('returns author by id', async () => {
+  it('returns category by id', async () => {
     service.findOne.mockResolvedValue({ id: '1' } as any);
 
     const result = await controller.findOne('1');
@@ -81,14 +82,19 @@ describe('AuthorsController', () => {
     expect(result).toEqual({ id: '1' });
   });
 
-  it('validates payload when creating author', async () => {
-    const dto = { name: 'John Doe', bio: 'Bio' };
-    service.create.mockResolvedValue({ id: '1', ...dto, slug: 'john-doe' } as any);
+  it('validates payload when creating category', async () => {
+    const dto = {
+      name: 'Fiksi',
+      icon: 'Book',
+      description: 'desc',
+      active: true,
+    };
+    service.create.mockResolvedValue({ id: '1', ...dto, slug: 'fiksi' } as any);
 
     const result = await controller.create(dto);
 
     expect(service.create).toHaveBeenCalledWith(dto);
-    expect(result).toEqual({ id: '1', ...dto, slug: 'john-doe' });
+    expect(result).toEqual({ id: '1', ...dto, slug: 'fiksi' });
   });
 
   it('passes id and payload to update', async () => {
@@ -104,7 +110,7 @@ describe('AuthorsController', () => {
     expect(result).toEqual({ id: '1', ...dto });
   });
 
-  it('removes author and returns null', async () => {
+  it('removes category and returns null', async () => {
     service.remove.mockResolvedValue(undefined);
 
     const result = await controller.remove('1');
@@ -116,34 +122,5 @@ describe('AuthorsController', () => {
       meta: null,
       error: null,
     });
-  });
-
-  it('parses query when listing books by author slug', async () => {
-    const payload = {
-      author: { id: 'a1' },
-      items: [],
-      meta: { page: 1, pageSize: 10, total: 0, totalPages: 0 },
-    };
-    service.findBooksBySlug.mockResolvedValue(payload as any);
-
-    const result = await controller.findBooksBySlug('john-doe', {
-      page: '1',
-      pageSize: '10',
-      sort: 'title:asc',
-    });
-
-    expect(service.findBooksBySlug).toHaveBeenCalledWith('john-doe', {
-      page: 1,
-      pageSize: 10,
-      q: undefined,
-      category: undefined,
-      categoryId: undefined,
-      authorId: undefined,
-      minPrice: undefined,
-      maxPrice: undefined,
-      active: undefined,
-      sort: 'title:asc',
-    });
-    expect(result).toBe(payload);
   });
 });

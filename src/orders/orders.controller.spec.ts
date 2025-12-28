@@ -6,6 +6,14 @@ import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 import { JwtAuthGuard } from '../auth/jwt.guard';
 
+const VALID_ORDER_ID = '04ece12f-7361-4d11-95ab-3c9ea83e1c17';
+const VALID_ORDER_ITEM_ID = '05ece12f-7361-4d11-95ab-3c9ea83e1c17';
+const VALID_BOOK_1 = 'b0f80e0c-9b8e-4a8e-a2e1-73614d1195ab';
+const VALID_ADDRESS_ID = 'b0l80e0c-9b8e-4a8e-a2e1-73614d1195ab';
+const VALID_USER_ID = 'P0l80e0c-9b8e-4a8e-a2e1-73614d1195ab';
+const VALID_CART_ID = 'P9l80e0c-9b8e-4a8e-a2e1-73614d1195ab';
+const VALID_CART_ITEM_ID = 'T9l80e0c-9b8e-4a8e-a2e1-73614d1195ab';
+
 describe('OrdersController', () => {
   let controller: OrdersController;
   let service: {
@@ -13,6 +21,8 @@ describe('OrdersController', () => {
     getOrdersByUserId: jest.Mock;
     getOrderDetails: jest.Mock;
     updateCustomerStatus: jest.Mock;
+    cancelOrderByCustomer: jest.Mock;
+    
   };
 
   beforeEach(async () => {
@@ -21,6 +31,7 @@ describe('OrdersController', () => {
       getOrdersByUserId: jest.fn(),
       getOrderDetails: jest.fn(),
       updateCustomerStatus: jest.fn(),
+      cancelOrderByCustomer: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -181,5 +192,25 @@ describe('OrdersController', () => {
     expect(
       customerStatusGuards?.some((guard: any) => guard === JwtAuthGuard),
     ).toBe(true);
+  });
+
+  describe('cancelOrderByCustomer', () => {
+    it('should call service with orderId and userId from jwt payload', async () => {
+      const mockOrderOutput = { id: VALID_ORDER_ID, status: 'CANCELLED' };
+      service.cancelOrderByCustomer.mockResolvedValue(mockOrderOutput as any);
+
+      // Mock Request Object sesuai dengan JwtPayload
+      const mockReq = {
+        user: { sub: VALID_USER_ID },
+      } as any;
+
+      const result = await controller.cancelOrderByCustomer(VALID_ORDER_ID, mockReq);
+
+      expect(service.cancelOrderByCustomer).toHaveBeenCalledWith(
+        VALID_ORDER_ID,
+        VALID_USER_ID,
+      );
+      expect(result).toEqual(mockOrderOutput);
+    });
   });
 });

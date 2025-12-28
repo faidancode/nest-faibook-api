@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { OrdersService } from './orders.service';
 import { ORDERS_PAYMENT } from './orders.payment';
@@ -9,6 +9,7 @@ import type {
 } from './schemas/orders.schemas';
 import { MidtransService } from '../midtrans/midtrans.service';
 import * as schema from '../infra/drizzle/schema';
+import { randomUUID } from 'crypto';
 
 type TxMock = {
   select: jest.Mock;
@@ -46,10 +47,18 @@ const createAdminCountBuilder = (total: number) => ({
   where: jest.fn().mockResolvedValue([{ total }]),
 });
 
+const VALID_ORDER_ID = '04ece12f-7361-4d11-95ab-3c9ea83e1c17';
+const VALID_ORDER_ITEM_ID = '05ece12f-7361-4d11-95ab-3c9ea83e1c17';
+const VALID_BOOK_1 = 'b0f80e0c-9b8e-4a8e-a2e1-73614d1195ab';
+const VALID_ADDRESS_ID = 'b0l80e0c-9b8e-4a8e-a2e1-73614d1195ab';
+const VALID_USER_ID = 'P0l80e0c-9b8e-4a8e-a2e1-73614d1195ab';
+const VALID_CART_ID = 'P9l80e0c-9b8e-4a8e-a2e1-73614d1195ab';
+const VALID_CART_ITEM_ID = 'T9l80e0c-9b8e-4a8e-a2e1-73614d1195ab';
+
 const baseDate = new Date();
 const buildOrder = (overrides: Partial<OrderOutput> = {}): OrderOutput => {
   const defaultAddress: AddressSnapshot = {
-    id: 'addr-1',
+    id: VALID_ADDRESS_ID,
     label: 'Home',
     recipientName: 'John Doe',
     recipientPhone: '123',
@@ -63,9 +72,9 @@ const buildOrder = (overrides: Partial<OrderOutput> = {}): OrderOutput => {
 
   const defaultItems: OrderItemOutput[] = [
     {
-      id: 'oi-1',
-      orderId: overrides.id ?? 'order-1',
-      bookId: 'book-1',
+      id: VALID_ORDER_ITEM_ID,
+      orderId: overrides.id ?? VALID_ORDER_ID,
+      bookId: VALID_BOOK_1,
       titleSnapshot: 'Sample Book',
       bookTitle: 'Sample Book',
       bookAuthor: 'John Doe',
@@ -80,9 +89,10 @@ const buildOrder = (overrides: Partial<OrderOutput> = {}): OrderOutput => {
   ];
 
   return {
-    id: 'order-1',
+    id: VALID_ORDER_ID,
+    midtransOrderId: VALID_ORDER_ID,
     orderNumber: 'ORD-UNIT',
-    userId: 'user-1',
+    userId: VALID_USER_ID,
     status: 'PENDING',
     paymentMethod: 'VA',
     paymentStatus: 'UNPAID',
@@ -102,12 +112,20 @@ const buildOrder = (overrides: Partial<OrderOutput> = {}): OrderOutput => {
     ...overrides,
     addressSnapshot: overrides.addressSnapshot ?? defaultAddress,
     items: overrides.items ?? defaultItems,
+    snapToken: 'TOKEN12345',
+    snapRedirectUrl: 'https://google.com',
+    snapTokenExpiredAt: null,
   };
 };
 
 describe('OrdersService', () => {
   let service: OrdersService;
-  let db: { transaction: jest.Mock; update: jest.Mock; select: jest.Mock };
+  let db: {
+    transaction: jest.Mock;
+    set: jest.Mock;
+    update: jest.Mock;
+    select: jest.Mock;
+  };
   let paymentIntegration: { handleAfterCheckout: jest.Mock };
   let midtransService: { createTransactionToken: jest.Mock };
   let loadProfileSpy: jest.SpyInstance;
@@ -117,6 +135,7 @@ describe('OrdersService', () => {
       transaction: jest.fn(),
       update: jest.fn(),
       select: jest.fn(),
+      set: jest.fn(),
     };
 
     paymentIntegration = {
@@ -124,9 +143,10 @@ describe('OrdersService', () => {
     };
 
     midtransService = {
-      createTransactionToken: jest
-        .fn()
-        .mockResolvedValue({ snapToken: 'snap-token', redirectUrl: 'snap-url' }),
+      createTransactionToken: jest.fn().mockResolvedValue({
+        snapToken: 'snap-token',
+        redirectUrl: 'snap-url',
+      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -162,17 +182,19 @@ describe('OrdersService', () => {
     jest.clearAllMocks();
   });
 
-  const mockFetchCart = (items: Array<{
-    id: string;
-    bookId: string;
-    quantity: number;
-    priceCentsAtAdd: number;
-    bookTitle: string;
-    bookStock: number;
-  }>) => {
+  const mockFetchCart = (
+    items: Array<{
+      id: string;
+      bookId: string;
+      quantity: number;
+      priceCentsAtAdd: number;
+      bookTitle: string;
+      bookStock: number;
+    }>,
+  ) => {
     const svc: any = service;
     svc.fetchCartWithItems = jest.fn().mockResolvedValue({
-      cartId: 'cart-1',
+      cartId: VALID_CART_ID,
       items,
     });
     svc.generateOrderNumber = jest.fn().mockReturnValue('ORD-UNIT');
@@ -185,8 +207,8 @@ describe('OrdersService', () => {
   it('checks out successfully and triggers payment integration', async () => {
     const cartItems = [
       {
-        id: 'ci-1',
-        bookId: 'book-1',
+        id: VALID_CART_ITEM_ID,
+        bookId: VALID_BOOK_1,
         quantity: 2,
         priceCentsAtAdd: 1000,
         bookTitle: 'First Book',
@@ -208,7 +230,7 @@ describe('OrdersService', () => {
       orderNumber: 'ORD-UNIT',
       totalCents: 4300,
       addressSnapshot: {
-        id: 'addr-1',
+        id: VALID_ADDRESS_ID,
         label: 'Home',
         recipientName: 'John Doe',
         recipientPhone: '123',
@@ -221,9 +243,9 @@ describe('OrdersService', () => {
       },
       items: [
         {
-          id: 'oi-1',
-          orderId: 'order-1',
-          bookId: 'book-1',
+          id: VALID_ORDER_ITEM_ID,
+          orderId: VALID_ORDER_ID,
+          bookId: VALID_BOOK_1,
           titleSnapshot: 'First Book',
           bookTitle: 'First Book',
           bookAuthor: 'Author One',
@@ -241,7 +263,7 @@ describe('OrdersService', () => {
 
     const tx = createTxMock();
     const addressRow = {
-      id: 'addr-1',
+      id: VALID_ADDRESS_ID,
       label: 'Rumah',
       recipientName: 'John',
       recipientPhone: '123',
@@ -251,7 +273,7 @@ describe('OrdersService', () => {
       city: null,
       province: null,
       postalCode: null,
-      userId: 'user-1',
+      userId: VALID_USER_ID,
     };
     tx.select.mockReturnValueOnce(createSelectLimitBuilder([addressRow]));
 
@@ -286,8 +308,8 @@ describe('OrdersService', () => {
     });
 
     const input = {
-      userId: 'user-1',
-      addressId: 'addr-1',
+      userId: VALID_USER_ID,
+      addressId: VALID_ADDRESS_ID,
       paymentMethod: 'VA',
       discountCents: 200,
       shippingCents: 500,
@@ -316,7 +338,7 @@ describe('OrdersService', () => {
         },
         items: expect.arrayContaining([
           expect.objectContaining({
-            id: 'book-1',
+            id: VALID_BOOK_1,
             price: 1000,
             quantity: 2,
             name: 'First Book',
@@ -342,7 +364,7 @@ describe('OrdersService', () => {
         ]),
       }),
     );
-    expect(fetchCartSpy).toHaveBeenCalledWith(expect.anything(), 'user-1');
+    expect(fetchCartSpy).toHaveBeenCalledWith(expect.anything(), VALID_USER_ID);
     expect(insertOrderValues).toHaveBeenCalledWith(
       expect.objectContaining({
         subtotalCents: 4000,
@@ -357,7 +379,7 @@ describe('OrdersService', () => {
     expect(insertItemsValues).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({
-          bookId: 'book-1',
+          bookId: VALID_BOOK_1,
           totalCents: 2000,
         }),
         expect.objectContaining({
@@ -380,7 +402,10 @@ describe('OrdersService', () => {
       finalOrder,
       { idempotencyKey: 'idem-123' },
     );
-    expect(orderDetailsSpy).toHaveBeenCalledWith(expect.any(String), 'user-1');
+    expect(orderDetailsSpy).toHaveBeenCalledWith(
+      expect.any(String),
+      VALID_USER_ID,
+    );
   });
 
   it('throws when cart is empty without performing inserts', async () => {
@@ -395,8 +420,8 @@ describe('OrdersService', () => {
 
     await expect(
       service.checkout({
-        userId: 'user-1',
-        addressId: 'addr-1',
+        userId: VALID_USER_ID,
+        addressId: VALID_ADDRESS_ID,
         paymentMethod: 'VA',
         shippingCents: 0,
         discountCents: 0,
@@ -422,8 +447,8 @@ describe('OrdersService', () => {
 
     await expect(
       service.checkout({
-        userId: 'user-1',
-        addressId: 'addr-1',
+        userId: VALID_USER_ID,
+        addressId: VALID_ADDRESS_ID,
         paymentMethod: 'VA',
         shippingCents: 0,
         discountCents: 0,
@@ -437,11 +462,11 @@ describe('OrdersService', () => {
   it('fails when stock is insufficient and rolls back updates', async () => {
     const svc: any = service;
     svc.fetchCartWithItems = jest.fn().mockResolvedValue({
-      cartId: 'cart-1',
+      cartId: VALID_CART_ID,
       items: [
         {
-          id: 'ci-1',
-          bookId: 'book-1',
+          id: VALID_CART_ITEM_ID,
+          bookId: VALID_BOOK_1,
           quantity: 5,
           priceCentsAtAdd: 1000,
           bookTitle: 'Only Book',
@@ -455,8 +480,8 @@ describe('OrdersService', () => {
     tx.select.mockReturnValueOnce(
       createSelectLimitBuilder([
         {
-          id: 'addr-1',
-          userId: 'user-1',
+          id: VALID_ADDRESS_ID,
+          userId: VALID_USER_ID,
         },
       ]),
     );
@@ -465,8 +490,8 @@ describe('OrdersService', () => {
 
     await expect(
       service.checkout({
-        userId: 'user-1',
-        addressId: 'addr-1',
+        userId: VALID_USER_ID,
+        addressId: VALID_ADDRESS_ID,
         paymentMethod: 'VA',
         shippingCents: 0,
         discountCents: 0,
@@ -481,11 +506,11 @@ describe('OrdersService', () => {
   it('does not clear cart when midtrans token creation fails', async () => {
     const svc: any = service;
     svc.fetchCartWithItems = jest.fn().mockResolvedValue({
-      cartId: 'cart-1',
+      cartId: VALID_CART_ID,
       items: [
         {
-          id: 'ci-1',
-          bookId: 'book-1',
+          id: VALID_CART_ITEM_ID,
+          bookId: VALID_BOOK_1,
           quantity: 1,
           priceCentsAtAdd: 1000,
           bookTitle: 'Only Book',
@@ -497,7 +522,9 @@ describe('OrdersService', () => {
 
     const tx = createTxMock();
     tx.select.mockReturnValueOnce(
-      createSelectLimitBuilder([{ id: 'addr-1', userId: 'user-1' }]),
+      createSelectLimitBuilder([
+        { id: VALID_ADDRESS_ID, userId: VALID_USER_ID },
+      ]),
     );
 
     midtransService.createTransactionToken.mockRejectedValue(
@@ -508,8 +535,8 @@ describe('OrdersService', () => {
 
     await expect(
       service.checkout({
-        userId: 'user-1',
-        addressId: 'addr-1',
+        userId: VALID_USER_ID,
+        addressId: VALID_ADDRESS_ID,
         paymentMethod: 'VA',
         shippingCents: 0,
         discountCents: 0,
@@ -524,8 +551,8 @@ describe('OrdersService', () => {
   it('propagates errors inside transaction and avoids payment call', async () => {
     const cartItems = [
       {
-        id: 'ci-1',
-        bookId: 'book-1',
+        id: VALID_CART_ITEM_ID,
+        bookId: VALID_BOOK_1,
         quantity: 1,
         priceCentsAtAdd: 2000,
         bookTitle: 'Book',
@@ -535,7 +562,9 @@ describe('OrdersService', () => {
     mockFetchCart(cartItems);
     const tx = createTxMock();
     tx.select.mockReturnValueOnce(
-      createSelectLimitBuilder([{ id: 'addr-1', userId: 'user-1' }]),
+      createSelectLimitBuilder([
+        { id: VALID_ADDRESS_ID, userId: VALID_USER_ID },
+      ]),
     );
     const insertOrderValues = jest.fn().mockResolvedValue(undefined);
     const insertItemsValues = jest
@@ -559,8 +588,8 @@ describe('OrdersService', () => {
 
     await expect(
       service.checkout({
-        userId: 'user-1',
-        addressId: 'addr-1',
+        userId: VALID_USER_ID,
+        addressId: VALID_ADDRESS_ID,
         paymentMethod: 'VA',
         shippingCents: 0,
         discountCents: 0,
@@ -574,8 +603,8 @@ describe('OrdersService', () => {
   it('handles idempotent checkout requests and skips duplicate transaction', async () => {
     const cartItems = [
       {
-        id: 'ci-1',
-        bookId: 'book-1',
+        id: VALID_CART_ITEM_ID,
+        bookId: VALID_BOOK_1,
         quantity: 1,
         priceCentsAtAdd: 1000,
         bookTitle: 'Book',
@@ -586,13 +615,15 @@ describe('OrdersService', () => {
     const svc: any = service;
     const fetchCartSpy = jest
       .fn()
-      .mockResolvedValue({ cartId: 'cart-1', items: cartItems });
+      .mockResolvedValue({ cartId: VALID_CART_ID, items: cartItems });
     svc.fetchCartWithItems = fetchCartSpy;
     svc.generateOrderNumber = jest.fn().mockReturnValue('ORD-UNIT');
 
     const tx = createTxMock();
     tx.select.mockReturnValue(
-      createSelectLimitBuilder([{ id: 'addr-1', userId: 'user-1' }]),
+      createSelectLimitBuilder([
+        { id: VALID_ADDRESS_ID, userId: VALID_USER_ID },
+      ]),
     );
 
     const insertOrderValues = jest.fn().mockResolvedValue(undefined);
@@ -618,8 +649,8 @@ describe('OrdersService', () => {
 
     await service.checkout(
       {
-        userId: 'user-1',
-        addressId: 'addr-1',
+        userId: VALID_USER_ID,
+        addressId: VALID_ADDRESS_ID,
         paymentMethod: 'VA',
         shippingCents: 0,
         discountCents: 0,
@@ -633,8 +664,8 @@ describe('OrdersService', () => {
 
     const secondResult = await service.checkout(
       {
-        userId: 'user-1',
-        addressId: 'addr-1',
+        userId: VALID_USER_ID,
+        addressId: VALID_ADDRESS_ID,
         paymentMethod: 'VA',
         shippingCents: 0,
         discountCents: 0,
@@ -654,8 +685,8 @@ describe('OrdersService', () => {
   it('persists initial status overrides (PAID)', async () => {
     const cartItems = [
       {
-        id: 'ci-1',
-        bookId: 'book-1',
+        id: VALID_CART_ITEM_ID,
+        bookId: VALID_BOOK_1,
         quantity: 1,
         priceCentsAtAdd: 1000,
         bookTitle: 'Book',
@@ -668,7 +699,9 @@ describe('OrdersService', () => {
 
     const tx = createTxMock();
     tx.select.mockReturnValueOnce(
-      createSelectLimitBuilder([{ id: 'addr-1', userId: 'user-1' }]),
+      createSelectLimitBuilder([
+        { id: VALID_ADDRESS_ID, userId: VALID_USER_ID },
+      ]),
     );
 
     const insertOrderValues = jest.fn().mockResolvedValue(undefined);
@@ -689,8 +722,8 @@ describe('OrdersService', () => {
 
     await service.checkout(
       {
-        userId: 'user-1',
-        addressId: 'addr-1',
+        userId: VALID_USER_ID,
+        addressId: VALID_ADDRESS_ID,
         paymentMethod: 'VA',
         shippingCents: 0,
         discountCents: 0,
@@ -713,7 +746,7 @@ describe('OrdersService', () => {
     const findOrderSpy = jest
       .spyOn(service as any, 'findOrderRow')
       .mockResolvedValue({
-        id: 'order-1',
+        id: VALID_ORDER_ID,
         paymentStatus: 'UNPAID',
         status: 'PENDING',
         paidAt: null,
@@ -725,9 +758,11 @@ describe('OrdersService', () => {
       .spyOn(service, 'getOrderDetails')
       .mockResolvedValue({} as OrderOutput);
 
-    await service.updatePaymentStatus('order-1', { paymentStatus: 'PAID' });
+    await service.updatePaymentStatus(VALID_ORDER_ID, {
+      paymentStatus: 'PAID',
+    });
 
-    expect(findOrderSpy).toHaveBeenCalledWith('order-1');
+    expect(findOrderSpy).toHaveBeenCalledWith(VALID_ORDER_ID);
     expect(updateSet).toHaveBeenCalledWith(
       expect.objectContaining({
         paymentStatus: 'PAID',
@@ -735,18 +770,18 @@ describe('OrdersService', () => {
         paidAt: expect.any(Date),
       }),
     );
-    expect(detailsSpy).toHaveBeenCalledWith('order-1');
+    expect(detailsSpy).toHaveBeenCalledWith(VALID_ORDER_ID);
   });
 
   it('rejects invalid payment status transition', async () => {
     jest.spyOn(service as any, 'findOrderRow').mockResolvedValue({
-      id: 'order-1',
+      id: VALID_ORDER_ID,
       paymentStatus: 'REFUNDED',
       status: 'CANCELLED',
     });
 
     await expect(
-      service.updatePaymentStatus('order-1', { paymentStatus: 'PAID' }),
+      service.updatePaymentStatus(VALID_ORDER_ID, { paymentStatus: 'PAID' }),
     ).rejects.toThrow('Cannot transition payment from REFUNDED to PAID');
     expect(db.update).not.toHaveBeenCalled();
   });
@@ -754,7 +789,7 @@ describe('OrdersService', () => {
   it('marks shipped orders as delivered', async () => {
     const findOrderSpy = jest
       .spyOn(service as any, 'findOrderRow')
-      .mockResolvedValue({ id: 'order-1', status: 'SHIPPED' });
+      .mockResolvedValue({ id: VALID_ORDER_ID, status: 'SHIPPED' });
     const updateWhere = jest.fn().mockResolvedValue(undefined);
     const updateSet = jest.fn().mockReturnValue({ where: updateWhere });
     db.update.mockReturnValue({ set: updateSet });
@@ -762,14 +797,14 @@ describe('OrdersService', () => {
       .spyOn(service, 'getOrderDetails')
       .mockResolvedValue({} as OrderOutput);
 
-    await service.markShippedOrderAsDelivered('order-1');
+    await service.markShippedOrderAsDelivered(VALID_ORDER_ID);
 
-    expect(findOrderSpy).toHaveBeenCalledWith('order-1');
+    expect(findOrderSpy).toHaveBeenCalledWith(VALID_ORDER_ID);
     expect(updateSet).toHaveBeenCalledWith({
       status: 'DELIVERED',
       updatedAt: expect.any(Date),
     });
-    expect(detailsSpy).toHaveBeenCalledWith('order-1');
+    expect(detailsSpy).toHaveBeenCalledWith(VALID_ORDER_ID);
   });
 
   it('rejects mark delivered call when order is not shipped', async () => {
@@ -811,9 +846,7 @@ describe('OrdersService', () => {
     expect(offset).toHaveBeenCalledWith(0);
     expect(countWhere).toHaveBeenCalledWith(expect.anything());
     expect(result).toEqual({
-      items: [
-        expect.objectContaining({ id: orderRow.id, status: 'PAID' }),
-      ],
+      items: [expect.objectContaining({ id: orderRow.id, status: 'PAID' })],
       meta: { page: 1, pageSize: 10, total: 1, totalPages: 1 },
     });
 
@@ -823,9 +856,9 @@ describe('OrdersService', () => {
   it('returns lightweight admin list with pagination metadata', async () => {
     const rows = [
       {
-        id: 'order-1',
+        id: VALID_ORDER_ID,
         orderNumber: 'ORD-1',
-        userId: 'user-1',
+        userId: VALID_USER_ID,
         userName: 'Alice',
         userEmail: 'a@example.com',
         status: 'PAID',
@@ -845,9 +878,10 @@ describe('OrdersService', () => {
 
     const result = await service.getAdminOrdersList({
       page: 1,
-      limit: 20,
+      pageSize: 20,
       status: 'PAID',
       search: 'ORD',
+      sort: 'createdAt:desc',
     });
 
     expect(result).toEqual({
@@ -882,6 +916,81 @@ describe('OrdersService', () => {
       cancelled: 1,
       pending: 2,
       processing: 0,
+    });
+  });
+
+  describe('cancelOrderByCustomer', () => {
+    it('should throw NotFoundException if order does not exist', async () => {
+      // Mock findOrderRow (method internal)
+      jest.spyOn(service as any, 'findOrderRow').mockResolvedValue(null);
+
+      await expect(
+        service.cancelOrderByCustomer(VALID_ORDER_ID, VALID_USER_ID),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw BadRequestException if order paymentStatus is PAID', async () => {
+      jest.spyOn(service as any, 'findOrderRow').mockResolvedValue({
+        id: VALID_ORDER_ID,
+        paymentStatus: 'PAID',
+        status: 'PENDING',
+      });
+
+      await expect(
+        service.cancelOrderByCustomer(VALID_ORDER_ID, VALID_USER_ID),
+      ).rejects.toThrow(BadRequestException);
+      expect(db.update).not.toHaveBeenCalled();
+    });
+
+    it('should return order details immediately if already CANCELLED (idempotent)', async () => {
+      jest.spyOn(service as any, 'findOrderRow').mockResolvedValue({
+        id: VALID_ORDER_ID,
+        status: 'CANCELLED',
+      });
+      const getDetailsSpy = jest
+        .spyOn(service as any, 'getOrderDetails')
+        .mockResolvedValue({ id: VALID_ORDER_ID, status: 'CANCELLED' });
+
+      const result = await service.cancelOrderByCustomer(
+        VALID_ORDER_ID,
+        VALID_USER_ID,
+      );
+
+      expect(result.status).toBe('CANCELLED');
+      expect(db.update).not.toHaveBeenCalled(); // Tidak ada update DB jika sudah cancel
+      expect(getDetailsSpy).toHaveBeenCalled();
+    });
+
+    it('should successfully update status to CANCELLED and set reason', async () => {
+      const VALID_ORDER_ID = randomUUID();
+      
+      // 2. Mock findOrderRow agar mengembalikan data order yang valid untuk di-cancel
+      jest.spyOn(service as any, 'findOrderRow').mockResolvedValue({
+        id: VALID_ORDER_ID,
+        status: 'PENDING',
+        paymentStatus: 'UNPAID',
+      });
+
+      // 3. Mock getOrderDetails agar tidak masuk ke logika sorting/parsing yang error
+      // Ini mencegah error di baris 857 (allowedSortFields)
+      jest.spyOn(service as any, 'getOrderDetails').mockResolvedValue({
+        id: VALID_ORDER_ID,
+        status: 'CANCELLED',
+      });
+
+      await service.cancelOrderByCustomer(VALID_ORDER_ID, randomUUID());
+
+      // 4. Verifikasi chaining
+      expect(db.update).toHaveBeenCalled();
+      
+      // Kita ambil mock 'set' dari hasil panggilan update pertama
+      const updateResult = db.update.mock.results[0].value;
+      expect(updateResult.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'CANCELLED',
+          cancelReason: 'USER_CANCEL',
+        }),
+      );
     });
   });
 });

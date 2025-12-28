@@ -12,10 +12,7 @@ jest.mock('bcrypt', () => ({
 import { compare, hash } from 'bcrypt';
 
 type HashFn = (data: string, saltOrRounds: number) => Promise<string>;
-type CompareFn = (
-  data: string,
-  encrypted: string,
-) => Promise<boolean>;
+type CompareFn = (data: string, encrypted: string) => Promise<boolean>;
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -90,12 +87,15 @@ describe('AuthService', () => {
     const insertValues = jest.fn().mockResolvedValue(undefined);
     db.insert.mockReturnValue({ values: insertValues });
 
-    const result = await service.register({
-      name: 'John Doe',
-      email: 'john@example.com',
-      password: 'secret123',
-      phone: undefined,
-    });
+    const result = await service.register(
+      {
+        name: 'John Doe',
+        email: 'john@example.com',
+        password: 'secret123',
+        phone: undefined,
+      },
+      'Web',
+    );
 
     expect(insertValues).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -139,12 +139,15 @@ describe('AuthService', () => {
     db.query.users.findFirst.mockResolvedValueOnce({ id: 'user-1' });
 
     await expect(
-      service.register({
-        name: 'Jane',
-        email: 'jane@example.com',
-        password: 'secret',
-        phone: undefined,
-      }),
+      service.register(
+        {
+          name: 'Jane',
+          email: 'jane@example.com',
+          password: 'secret',
+          phone: undefined,
+        },
+        'Web',
+      ),
     ).rejects.toThrow(ConflictException);
     expect(db.insert).not.toHaveBeenCalled();
   });
@@ -175,9 +178,8 @@ describe('AuthService', () => {
       .mockResolvedValueOnce('new-access-token')
       .mockResolvedValueOnce('new-refresh-token');
 
-    const result = await service.verifyAndIssueAccessByRefreshToken(
-      'refresh-token',
-    );
+    const result =
+      await service.verifyAndIssueAccessByRefreshToken('refresh-token');
 
     expect(jwt.verifyAsync).toHaveBeenCalledWith('refresh-token', {
       secret: jwtConfig.refreshSecret,

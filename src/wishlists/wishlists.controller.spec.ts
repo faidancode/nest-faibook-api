@@ -8,8 +8,8 @@ describe('WishlistsController', () => {
   const wrap = (data: any) => ({
     ok: true,
     data,
-    meta: {},
-    error: {},
+    meta: null,
+    error: null,
   });
 
   beforeEach(async () => {

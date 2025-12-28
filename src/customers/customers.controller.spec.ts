@@ -8,7 +8,7 @@ describe('CustomersController', () => {
 
   beforeEach(async () => {
     const serviceMock: Partial<Record<keyof CustomersService, jest.Mock>> = {
-      listCustomers: jest.fn(),
+      findAll: jest.fn(),
       getCustomerWithOrders: jest.fn(),
     };
 
@@ -35,7 +35,7 @@ describe('CustomersController', () => {
       items: [],
       meta: { page: 2, pageSize: 5, total: 0, totalPages: 0 },
     };
-    service.listCustomers.mockResolvedValue(payload as any);
+    service.findAll.mockResolvedValue(payload as any);
 
     const result = await controller.list({
       page: '2',
@@ -44,17 +44,18 @@ describe('CustomersController', () => {
       search: undefined,
     });
 
-    expect(service.listCustomers).toHaveBeenCalledWith({
-      page: 2,
-      pageSize: 5,
-      q: 'john',
-      search: undefined,
-    });
+    expect(service.findAll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        page: 2,
+        pageSize: 5,
+        q: 'john',
+      }),
+    );
     expect(result).toBe(payload);
   });
 
   it('passes search query to service', async () => {
-    service.listCustomers.mockResolvedValue({ items: [], meta: {} } as any);
+    service.findAll.mockResolvedValue({ items: [], meta: {} } as any);
 
     await controller.list({
       page: '1',
@@ -63,7 +64,7 @@ describe('CustomersController', () => {
       search: 'alice',
     });
 
-    expect(service.listCustomers).toHaveBeenCalledWith(
+    expect(service.findAll).toHaveBeenCalledWith(
       expect.objectContaining({ search: 'alice' }),
     );
   });

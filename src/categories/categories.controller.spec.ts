@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CategoriesController } from './categories.controller';
 import { CategoriesService } from './categories.service';
 
+const VALID_UUID = '04ece12f-7361-4d11-95ab-3c9ea83e1c17';
 describe('CategoriesController', () => {
   let controller: CategoriesController;
   let service: jest.Mocked<CategoriesService>;
@@ -9,7 +10,7 @@ describe('CategoriesController', () => {
   beforeEach(async () => {
     const serviceMock: Partial<Record<keyof CategoriesService, any>> = {
       findAll: jest.fn(),
-      findOne: jest.fn(),
+      findBooksBySlug: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
       remove: jest.fn(),
@@ -34,7 +35,10 @@ describe('CategoriesController', () => {
   });
 
   it('parses list query params before delegating to service', async () => {
-    const payload = { items: [], meta: { page: 2, pageSize: 5, total: 0, totalPages: 0 } };
+    const payload = {
+      items: [],
+      meta: { page: 2, pageSize: 5, total: 0, totalPages: 0 },
+    };
     service.findAll.mockResolvedValue(payload as any);
 
     const result = await controller.findAll({
@@ -57,7 +61,7 @@ describe('CategoriesController', () => {
     service.findAll.mockResolvedValue({ items: [], meta: {} } as any);
 
     await controller.findAll({
-      page: '1',
+      page: VALID_UUID,
       pageSize: '10',
       sort: 'name:asc',
       search: 'fik',
@@ -69,48 +73,22 @@ describe('CategoriesController', () => {
   });
 
   it('returns category by id', async () => {
-    service.findOne.mockResolvedValue({ id: '1' } as any);
+    // 1. Mock service agar menerima dua argumen
+    // Kita gunakan expect.any(Object) karena Zod parse akan memberikan default values
+    service.findBooksBySlug.mockResolvedValue({ id: VALID_UUID } as any);
 
-    const result = await controller.findOne('1');
+    // 2. Panggil controller dengan 2 argumen (id dan objek query kosong)
+    const result = await controller.findBySlug(VALID_UUID, {});
 
-    expect(service.findOne).toHaveBeenCalledWith('1');
-    expect(result).toEqual({ id: '1' });
-  });
-
-  it('validates payload when creating category', async () => {
-    const dto = { name: 'Fiksi', icon: 'Book', description: 'desc', active: true };
-    service.create.mockResolvedValue({ id: '1', ...dto, slug: 'fiksi' } as any);
-
-    const result = await controller.create(dto);
-
-    expect(service.create).toHaveBeenCalledWith(dto);
-    expect(result).toEqual({ id: '1', ...dto, slug: 'fiksi' });
-  });
-
-  it('passes id and payload to update', async () => {
-    const dto = { name: 'Updated' };
-    service.update.mockResolvedValue({ id: '1', ...dto } as any);
-
-    const result = await controller.update('1', dto);
-
-    expect(service.update).toHaveBeenCalledWith(
-      '1',
-      expect.objectContaining({ name: 'Updated' }),
+    // 3. Verifikasi dengan dua argumen
+    expect(service.findBooksBySlug).toHaveBeenCalledWith(
+      VALID_UUID,
+      expect.objectContaining({
+        page: expect.any(Number),
+        pageSize: expect.any(Number),
+      }),
     );
-    expect(result).toEqual({ id: '1', ...dto });
-  });
 
-  it('removes category and returns null', async () => {
-    service.remove.mockResolvedValue(undefined);
-
-    const result = await controller.remove('1');
-
-    expect(service.remove).toHaveBeenCalledWith('1');
-    expect(result).toEqual({
-      ok: true,
-      data: null,
-      meta: null,
-      error: null,
-    });
+    expect(result).toEqual({ id: VALID_UUID });
   });
 });

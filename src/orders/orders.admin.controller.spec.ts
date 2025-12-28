@@ -32,27 +32,41 @@ describe('OrdersAdminController', () => {
   });
 
   it('parses list query params before calling service', async () => {
-    const payload = { items: [], meta: { page: 1, pageSize: 20, total: 0, totalPages: 0 } };
+    const payload = {
+      items: [],
+      meta: { page: 1, pageSize: 20, total: 0, totalPages: 0 },
+    };
     service.getAdminOrdersList.mockResolvedValue(payload as any);
 
     const result = await controller.list({
       page: '2',
-      limit: '5',
+      pageSize: '5',
       status: 'PAID',
       search: 'john',
+      sort: 'createdAt:desc',
     });
 
     expect(service.getAdminOrdersList).toHaveBeenCalledWith({
       page: 2,
-      limit: 5,
+      pageSize: 5,
       status: 'PAID',
       search: 'john',
+      sort: 'createdAt:desc',
     });
     expect(result).toBe(payload);
   });
 
   it('returns stats payload from service', async () => {
-    const stats = { total: 5, paid: 2, shipped: 1, delivered: 0, completed: 1, cancelled: 1, pending: 0, processing: 0 };
+    const stats = {
+      total: 5,
+      paid: 2,
+      shipped: 1,
+      delivered: 0,
+      completed: 1,
+      cancelled: 1,
+      pending: 0,
+      processing: 0,
+    };
     service.getAdminOrdersStats.mockResolvedValue(stats as any);
 
     const result = await controller.stats();
@@ -95,6 +109,8 @@ describe('OrdersAdminController', () => {
   it('exposes mark delivered operation', async () => {
     await controller.markDelivered('order-123');
 
-    expect(service.markShippedOrderAsDelivered).toHaveBeenCalledWith('order-123');
+    expect(service.markShippedOrderAsDelivered).toHaveBeenCalledWith(
+      'order-123',
+    );
   });
 });

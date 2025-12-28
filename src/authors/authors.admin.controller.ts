@@ -10,7 +10,7 @@ import {
     Post,
     Query
 } from '@nestjs/common';
-import { AdminAuthWithDemo } from 'src/common/decorators/admin-auth-with-demo.decorator';
+import { AdminAuthWithDemo } from '../common/decorators/admin-auth-with-demo.decorator';
 import { ListBooksQuerySchema } from '../books/books.schemas';
 import {
     CreateAuthorSchema,

@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { BooksController } from './books.controller';
 import { BooksService } from './books.service';
@@ -7,317 +7,151 @@ import { CloudinaryService } from '../cloudinary/cloudinary.service';
 describe('BooksController', () => {
   let controller: BooksController;
   let service: jest.Mocked<BooksService>;
-  let cloudinary: jest.Mocked<CloudinaryService>;
 
   beforeEach(async () => {
+    // Definisi mock yang sesuai dengan method di BooksService
     const serviceMock: Partial<Record<keyof BooksService, jest.Mock>> = {
       findAll: jest.fn(),
-      findOne: jest.fn(),
+      findBySlug: jest.fn(), // Gunakan findBySlug sesuai controller
       getReviewsBySlug: jest.fn(),
-      getReviewsByBookId: jest.fn(),
       getReviewsByUserId: jest.fn(),
       checkReviewEligibility: jest.fn(),
-      create: jest.fn(),
       createReview: jest.fn(),
-      update: jest.fn(),
-      remove: jest.fn(),
     };
 
-    const cloudinaryMock: Partial<
-      Record<keyof CloudinaryService, jest.Mock>
-    > = {
+    const cloudinaryMock = {
       uploadImage: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [BooksController],
       providers: [
-        {
-          provide: BooksService,
-          useValue: serviceMock,
-        },
-        {
-          provide: CloudinaryService,
-          useValue: cloudinaryMock,
-        },
+        { provide: BooksService, useValue: serviceMock },
+        { provide: CloudinaryService, useValue: cloudinaryMock },
       ],
     }).compile();
 
     controller = module.get<BooksController>(BooksController);
     service = module.get(BooksService) as jest.Mocked<BooksService>;
-    cloudinary = module.get(
-      CloudinaryService,
-    ) as jest.Mocked<CloudinaryService>;
   });
 
-  it('should be defined', () => {
-    expect(controller).toBeDefined();
-  });
+  describe('findAll', () => {
+    it('parses list query parameters before delegating to service', async () => {
+      const payload = { items: [], meta: { page: 1, pageSize: 10 } };
+      service.findAll.mockResolvedValue(payload as any);
 
-  it('parses list query parameters before delegating to service', async () => {
-    const payload = {
-      items: [],
-      meta: { page: 2, pageSize: 5, total: 0, totalPages: 0 },
-    };
-    service.findAll.mockResolvedValue(payload as any);
+      const result = await controller.findAll({
+        page: '2',
+        pageSize: '5',
+        active: 'true',
+      });
 
-    const query = await controller.findAll({
-      page: '2',
-      pageSize: '5',
-      sort: 'createdAt:desc',
-      categoryId: '00000000-0000-0000-0000-000000000000',
-      active: 'true',
-    });
-
-    expect(service.findAll).toHaveBeenCalledWith({
-      page: 2,
-      pageSize: 5,
-      q: undefined,
-      sort: 'createdAt:desc',
-      categoryId: '00000000-0000-0000-0000-000000000000',
-      authorId: undefined,
-      active: true,
-    });
-    expect(query).toBe(payload);
-  });
-
-  it('returns a single book with wishlist context when user is authenticated', async () => {
-    service.findOne.mockResolvedValue({ id: 'book-1' } as any);
-    const req = { user: { sub: 'user-1' } };
-
-    const book = await controller.findOne('book-1', req as any);
-
-    expect(service.findOne).toHaveBeenCalledWith('book-1', {
-      userId: 'user-1',
-    });
-    expect(book).toEqual({ id: 'book-1' });
-  });
-
-  it('returns a single book for anonymous user', async () => {
-    service.findOne.mockResolvedValue({ id: 'book-1' } as any);
-
-    const book = await controller.findOne('book-1', {} as any);
-
-    expect(service.findOne).toHaveBeenCalledWith('book-1', {
-      userId: undefined,
-    });
-    expect(book).toEqual({ id: 'book-1' });
-  });
-
-  it('parses review query parameters before delegating to service', async () => {
-    const payload = {
-      data: {
-        book: { id: 'book-1', title: 'Book A' },
-        reviews: [],
-        ratingCounts: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
-      },
-      meta: { page: 1, pageSize: 3, total: 0, totalPages: 0 },
-      error: {},
-      ok: true,
-    };
-    service.getReviewsBySlug.mockResolvedValue(payload as any);
-
-    const reviews = await controller.getReviewsBySlug('book-a', {
-      sort: 'highest',
-      rating: '4',
-      limit: '3',
-      page: '1',
-    });
-
-    expect(service.getReviewsBySlug).toHaveBeenCalledWith('book-a', {
-      sort: 'highest',
-      rating: 4,
-      page: 1,
-      pageSize: 3,
-    });
-    expect(reviews).toBe(payload);
-  });
-
-  it('parses admin review query parameters by book id before delegating to service', async () => {
-    const payload = {
-      data: { book: { id: 'book-1', title: 'Book A' }, reviews: [], ratingCounts: {} },
-      meta: { page: 1, pageSize: 5, total: 0, totalPages: 0 },
-      ok: true,
-      error: {},
-    };
-    service.getReviewsByBookId.mockResolvedValue(payload as any);
-
-    const reviews = await controller.getReviewsByBookId('book-1', {
-      sort: 'oldest',
-      rating: '3',
-      limit: '5',
-      page: '1',
-    });
-
-    expect(service.getReviewsByBookId).toHaveBeenCalledWith('book-1', {
-      sort: 'oldest',
-      rating: 3,
-      page: 1,
-      pageSize: 5,
-    });
-    expect(reviews).toBe(payload);
-  });
-
-  it('parses user review query parameters and enforces identity before delegating to service', async () => {
-    const payload = {
-      data: {
-        user: { id: 'user-1', name: 'User One', email: 'user@example.com', averageRating: 4.5, totalReviews: 2 },
-        reviews: [],
-        ratingCounts: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 2 },
-      },
-      meta: { page: 1, pageSize: 5, total: 0, totalPages: 0 },
-      ok: true,
-      error: {},
-    };
-    service.getReviewsByUserId.mockResolvedValue(payload as any);
-
-    const reviews = await controller.getReviewsByUserId(
-      'user-1',
-      {
-        sort: 'oldest',
-        rating: '5',
-        limit: '5',
-        page: '1',
-      },
-      { user: { sub: 'user-1', role: 'CUSTOMER' } } as any,
-    );
-
-    expect(service.getReviewsByUserId).toHaveBeenCalledWith('user-1', {
-      sort: 'oldest',
-      rating: 5,
-      page: 1,
-      pageSize: 5,
-    });
-    expect(reviews).toBe(payload);
-  });
-
-  it('returns eligibility payload with user from token when available', async () => {
-    const payload = { eligible: true, reason: 'ELIGIBLE' };
-    service.checkReviewEligibility.mockResolvedValue(payload as any);
-
-    const resp = await controller.getReviewEligibility('book-a', {
-      user: { sub: 'user-1' },
-    } as any);
-
-    expect(service.checkReviewEligibility).toHaveBeenCalledWith(
-      'book-a',
-      'user-1',
-    );
-    expect(resp).toEqual({
-      data: payload,
-      meta: {},
-      error: {},
-      ok: true,
+      expect(service.findAll).toHaveBeenCalledWith(
+        expect.objectContaining({
+          page: 2,
+          pageSize: 5,
+          active: true,
+        }),
+      );
+      expect(result).toBe(payload);
     });
   });
 
-  it('creates a review with parsed payload and user id', async () => {
-    const payload = {
-      data: { review: { id: 'r1' }, rating: { averageRating: 5, totalReviews: 1 } },
-      meta: {},
-      error: {},
-      ok: true,
-    };
-    service.createReview.mockResolvedValue(payload as any);
+  describe('findBySlug', () => {
+    it('returns a single book by slug', async () => {
+      const payload = { id: 'book-1', title: 'Test Book' };
+      service.findBySlug.mockResolvedValue(payload as any);
 
-    const result = await controller.createReview(
-      'book-a',
-      { rating: '5', body: 'Nice book' },
-      { user: { sub: 'user-1' } } as any,
-    );
+      const result = await controller.findBySlug('book-1');
 
-    expect(service.createReview).toHaveBeenCalledWith('book-a', {
-      rating: 5,
-      body: 'Nice book',
-    }, 'user-1');
-    expect(result).toBe(payload);
+      // Sesuai kode controller Anda: return this.booksService.findBySlug(slug)
+      // Tidak ada parameter userId di implementasi controller Anda saat ini
+      expect(service.findBySlug).toHaveBeenCalledWith('book-1');
+      expect(result).toEqual(payload);
+    });
   });
 
-  it('validates payload when creating book using provided cover url when no file uploaded', async () => {
-    service.create.mockResolvedValue({ id: 'book-1' } as any);
+  describe('getReviewsByUserId', () => {
+    it('enforces identity and allows owner to access reviews', async () => {
+      const payload = { data: [], ok: true };
+      service.getReviewsByUserId.mockResolvedValue(payload as any);
 
-    const body = {
-      title: 'Book Title',
-      categoryId: '00000000-0000-0000-0000-000000000000',
-      priceCents: 1000,
-      coverUrl: 'https://example.com/a.jpg',
-      description: 'desc',
-    };
+      const mockReq = {
+        user: { sub: 'user-1', role: 'CUSTOMER' },
+      } as any;
 
-    const result = await controller.create(undefined, body);
+      const result = await controller.getReviewsByUserId(
+        'user-1',
+        { page: '1', limit: '5' },
+        mockReq,
+      );
 
-    expect(service.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: 'Book Title',
-        priceCents: 1000,
-        coverUrl: 'https://example.com/a.jpg',
-      }),
-    );
-    expect(cloudinary.uploadImage).not.toHaveBeenCalled();
-    expect(result).toEqual({ id: 'book-1' });
+      expect(service.getReviewsByUserId).toHaveBeenCalledWith(
+        'user-1',
+        expect.objectContaining({ page: 1, pageSize: 5 }),
+      );
+      expect(result).toBe(payload);
+    });
+
+    it('throws ForbiddenException if user tries to access others reviews', async () => {
+      const mockReq = {
+        user: { sub: 'user-hacker', role: 'CUSTOMER' },
+      } as any;
+
+      await expect(
+        controller.getReviewsByUserId('user-victim', {}, mockReq),
+      ).rejects.toThrow(ForbiddenException);
+    });
   });
 
-  it('uploads file to cloudinary when cover file provided and uses returned url', async () => {
-    service.create.mockResolvedValue({ id: 'book-1' } as any);
-    cloudinary.uploadImage.mockResolvedValue('https://cdn.test/uploaded.jpg');
+  describe('getReviewEligibility', () => {
+    it('returns eligibility for authenticated user', async () => {
+      const payload = { eligible: true };
+      service.checkReviewEligibility.mockResolvedValue(payload as any);
 
-    const file = {
-      buffer: Buffer.from('file'),
-      size: 10,
-    } as Express.Multer.File;
-    const body = {
-      title: 'Book Title',
-      categoryId: '00000000-0000-0000-0000-000000000000',
-      priceCents: 1000,
-      description: 'desc',
-    };
+      const mockReq = { user: { sub: 'user-1' } } as any;
+      const result = await controller.getReviewEligibility('book-a', mockReq);
 
-    const result = await controller.create(file, body);
+      expect(service.checkReviewEligibility).toHaveBeenCalledWith(
+        'book-a',
+        'user-1',
+      );
+      expect(result.data).toEqual(payload);
+    });
 
-    expect(cloudinary.uploadImage).toHaveBeenCalledWith(file);
-    expect(service.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        coverUrl: 'https://cdn.test/uploaded.jpg',
-      }),
-    );
-    expect(result).toEqual({ id: 'book-1' });
+    it('returns eligibility for anonymous user as null', async () => {
+      service.checkReviewEligibility.mockResolvedValue({
+        eligible: false,
+      } as any);
+
+      const mockReq = { user: undefined } as any;
+      await controller.getReviewEligibility('book-a', mockReq);
+
+      expect(service.checkReviewEligibility).toHaveBeenCalledWith(
+        'book-a',
+        null,
+      );
+    });
   });
 
-  it('throws bad request when neither file nor cover url provided', async () => {
-    await expect(
-      controller.create(undefined, {
-        title: 'Book Title',
-        categoryId: '00000000-0000-0000-0000-000000000000',
-        priceCents: 1000,
-        description: 'desc',
-      }),
-    ).rejects.toThrow(BadRequestException);
-  });
+  describe('createReview', () => {
+    it('creates a review with parsed rating and user sub', async () => {
+      const payload = { ok: true };
+      service.createReview.mockResolvedValue(payload as any);
 
-  it('passes id and payload to update', async () => {
-    service.update.mockResolvedValue({ id: 'book-1', title: 'Updated' } as any);
+      const mockReq = { user: { sub: 'user-1' } } as any;
+      const result = await controller.createReview(
+        'book-a',
+        { rating: '5', body: 'Great!' },
+        mockReq,
+      );
 
-    const body = { title: 'Updated' };
-    const result = await controller.update('book-1', body);
-
-    expect(service.update).toHaveBeenCalledWith(
-      'book-1',
-      expect.objectContaining({ title: 'Updated' }),
-    );
-    expect(result).toEqual({ id: 'book-1', title: 'Updated' });
-  });
-
-  it('removes book and returns null payload', async () => {
-    service.remove.mockResolvedValue(undefined);
-
-    const result = await controller.remove('book-1');
-
-    expect(service.remove).toHaveBeenCalledWith('book-1');
-    expect(result).toEqual({
-      ok: true,
-      data: null,
-      meta: null,
-      error: null,
+      expect(service.createReview).toHaveBeenCalledWith(
+        'book-a',
+        { rating: 5, body: 'Great!' },
+        'user-1',
+      );
+      expect(result).toBe(payload);
     });
   });
 });

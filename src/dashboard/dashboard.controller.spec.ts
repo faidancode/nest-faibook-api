@@ -54,24 +54,24 @@ describe('DashboardController', () => {
     });
   });
 
-  it('parses top books query with limit', async () => {
+  it('parses top books query with pageSize', async () => {
     service.getTopBooks.mockResolvedValue([] as any);
 
-    await controller.topBooks({ limit: '3' });
+    await controller.topBooks({ pageSize: '3' });
 
     expect(service.getTopBooks).toHaveBeenCalledWith({
       from: undefined,
       to: undefined,
-      limit: 3,
+      pageSize: 3,
     });
   });
 
-  it('parses recent orders limit', async () => {
+  it('parses recent orders pageSize', async () => {
     service.getRecentOrders.mockResolvedValue([] as any);
 
-    await controller.recentOrders({ limit: '8' });
+    await controller.recentOrders({ pageSize: '8' });
 
-    expect(service.getRecentOrders).toHaveBeenCalledWith({ limit: 8 });
+    expect(service.getRecentOrders).toHaveBeenCalledWith({ pageSize: 8 });
   });
 
   it('parses low stock query with defaults', async () => {
@@ -81,15 +81,15 @@ describe('DashboardController', () => {
 
     expect(service.getLowStock).toHaveBeenCalledWith({
       threshold: 5,
-      limit: 10,
+      pageSize: 10,
     });
   });
 
-  it('parses recent reviews limit', async () => {
+  it('parses recent reviews pageSize', async () => {
     service.getRecentReviews.mockResolvedValue([] as any);
 
-    await controller.recentReviews({ limit: '4' });
+    await controller.recentReviews({ pageSize: '4' });
 
-    expect(service.getRecentReviews).toHaveBeenCalledWith({ limit: 4 });
+    expect(service.getRecentReviews).toHaveBeenCalledWith({ pageSize: 4 });
   });
 });
