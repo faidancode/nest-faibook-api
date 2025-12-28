@@ -5,15 +5,8 @@
     {
       "idx": 0,
       "version": "5",
-      "when": 1766758225623,
-      "tag": "0000_conscious_dragon_man",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "5",
-      "when": 1766840334062,
-      "tag": "0001_nebulous_klaw",
+      "when": 1766913793332,
+      "tag": "0000_faulty_roulette",
       "breakpoints": true
     }
   ]

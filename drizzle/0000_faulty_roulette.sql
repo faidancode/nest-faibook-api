@@ -192,7 +192,7 @@ CREATE TABLE `users` (
 	`passwordHash` varchar(255) NOT NULL,
 	`isActive` boolean NOT NULL DEFAULT true,
 	`emailConfirmed` boolean NOT NULL DEFAULT false,
-	`role` enum('SUPERADMIN','ADMIN','CUSTOMER') NOT NULL,
+	`role` enum('SUPERADMIN','ADMIN','GUESTADMIN','CUSTOMER') NOT NULL,
 	`created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	`updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 	`deletedAt` datetime,

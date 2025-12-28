@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "8f95c7a2-424c-4bbe-a0e9-5cc30116d0f9",
+  "id": "c6d1aac5-1c19-41b5-8292-de4ff518bc02",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "addresses": {
@@ -1574,7 +1574,7 @@
         },
         "role": {
           "name": "role",
-          "type": "enum('SUPERADMIN','ADMIN','CUSTOMER')",
+          "type": "enum('SUPERADMIN','ADMIN','GUESTADMIN','CUSTOMER')",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false

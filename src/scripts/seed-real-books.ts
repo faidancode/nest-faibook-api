@@ -31,12 +31,12 @@ type RealBookSeed = {
 
 const REAL_BOOKS: RealBookSeed[] = [
   {
-    title: 'Harry Potter and the Sorcerer\'s Stone',
+    title: "Harry Potter and the Sorcerer's Stone",
     slug: 'harry-potter-and-the-sorcerers-stone',
     authorSlug: 'jk-rowling',
     categorySlug: 'children-fiction',
     isbn: '9780439708180',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9780439708180-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766913333/hp-the-sorcerer-stones_ueojza.webp',
     description:
       'Harry discovers Hogwarts, lifelong friendships, and the mystery of a legendary stone in his first year.',
     publisher: 'Bloomsbury',
@@ -53,7 +53,7 @@ const REAL_BOOKS: RealBookSeed[] = [
     authorSlug: 'jk-rowling',
     categorySlug: 'children-fiction',
     isbn: '9780439064873',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9780439064873-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766913327/hp-chamber-secrets_bor1fd.webp',
     description:
       'A hidden chamber is opened at Hogwarts and Harry must uncover its monster to protect his classmates.',
     publisher: 'Bloomsbury',
@@ -70,9 +70,9 @@ const REAL_BOOKS: RealBookSeed[] = [
     authorSlug: 'jk-rowling',
     categorySlug: 'children-fiction',
     isbn: '9780439136365',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9780439136365-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766913332/hp-prisoner-of-azkaban_o08v7y.webp',
     description:
-      'Sirius Black escapes Azkaban, forcing Harry to confront the ghosts of his family\'s past.',
+      "Sirius Black escapes Azkaban, forcing Harry to confront the ghosts of his family's past.",
     publisher: 'Bloomsbury',
     pages: 448,
     language: 'English',
@@ -87,9 +87,9 @@ const REAL_BOOKS: RealBookSeed[] = [
     authorSlug: 'jk-rowling',
     categorySlug: 'children-fiction',
     isbn: '9780439139601',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9780439139601-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766913331/hp-goblet-of-fire_rsn4as.webp',
     description:
-      'The Triwizard Tournament arrives with deadly trials and Voldemort\'s rise looming in the shadows.',
+      "The Triwizard Tournament arrives with deadly trials and Voldemort's rise looming in the shadows.",
     publisher: 'Bloomsbury',
     pages: 734,
     language: 'English',
@@ -103,9 +103,9 @@ const REAL_BOOKS: RealBookSeed[] = [
     authorSlug: 'jk-rowling',
     categorySlug: 'children-fiction',
     isbn: '9780439358071',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9780439358071-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766913324/sense-and-sendibility_cv0dv0.webp',
     description:
-      'Harry leads Dumbledore\'s Army while the Order fights Voldemort\'s return and the Ministry\'s denial.',
+      "Harry leads Dumbledore's Army while the Order fights Voldemort's return and the Ministry's denial.",
     publisher: 'Bloomsbury',
     pages: 870,
     language: 'English',
@@ -120,9 +120,9 @@ const REAL_BOOKS: RealBookSeed[] = [
     authorSlug: 'jk-rowling',
     categorySlug: 'children-fiction',
     isbn: '9780439784542',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9780439784542-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766913331/hp-half-blood-prince_frceyy.webp',
     description:
-      'Secrets of Voldemort\'s past surface while Harry follows the mysterious notes of the Half-Blood Prince.',
+      "Secrets of Voldemort's past surface while Harry follows the mysterious notes of the Half-Blood Prince.",
     publisher: 'Bloomsbury',
     pages: 652,
     language: 'English',
@@ -136,7 +136,7 @@ const REAL_BOOKS: RealBookSeed[] = [
     authorSlug: 'jk-rowling',
     categorySlug: 'children-fiction',
     isbn: '9780545139700',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9780545139700-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766913330/hp-deathly-hallow_isplht.webp',
     description:
       'The final battle for the wizarding world pits Harry against Voldemort in a race for the Deathly Hallows.',
     publisher: 'Bloomsbury',
@@ -152,7 +152,7 @@ const REAL_BOOKS: RealBookSeed[] = [
     authorSlug: 'george-rr-martin',
     categorySlug: 'adult-fiction',
     isbn: '9780553386790',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9780553386790-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766913325/game-of-thrones_dq19rv.webp',
     description:
       'Noble houses vie for power across Westeros while winter and dark magic creep ever closer.',
     publisher: 'Bantam Spectra',
@@ -169,7 +169,7 @@ const REAL_BOOKS: RealBookSeed[] = [
     authorSlug: 'george-rr-martin',
     categorySlug: 'adult-fiction',
     isbn: '9780553381696',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9780553381696-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766913325/clash-of-kings_idjq53.webp',
     description:
       'Five kings battle for the Iron Throne as plots, prophecies, and wildfire ignite Westeros.',
     publisher: 'Bantam Spectra',
@@ -185,7 +185,7 @@ const REAL_BOOKS: RealBookSeed[] = [
     authorSlug: 'george-rr-martin',
     categorySlug: 'adult-fiction',
     isbn: '9780553381702',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9780553381702-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766913336/storm-of-words_r71bky.webp',
     description:
       'Betrayal and war reach a boiling point in the blood-soaked third volume of A Song of Ice and Fire.',
     publisher: 'Bantam Spectra',
@@ -201,7 +201,7 @@ const REAL_BOOKS: RealBookSeed[] = [
     authorSlug: 'stephen-king',
     categorySlug: 'adult-fiction',
     isbn: '9780307743657',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9780307743657-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766913340/the-shining_po8pxk.webp',
     description:
       'Isolation and supernatural forces push a family to the edge inside the haunted Overlook Hotel.',
     publisher: 'Anchor',
@@ -217,7 +217,7 @@ const REAL_BOOKS: RealBookSeed[] = [
     authorSlug: 'stephen-king',
     categorySlug: 'adult-fiction',
     isbn: '9781501142970',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9781501142970-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766913335/it_dcl5bv.webp',
     description:
       'Childhood fears manifest as Pennywise returns to haunt the Losers Club across decades.',
     publisher: 'Scribner',
@@ -233,7 +233,7 @@ const REAL_BOOKS: RealBookSeed[] = [
     authorSlug: 'stephen-king',
     categorySlug: 'adult-fiction',
     isbn: '9781451627299',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9781451627299-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766913323/11-22-63_skmkfv.webp',
     description:
       'A time traveler attempts to stop the JFK assassination, discovering the consequences of changing history.',
     publisher: 'Scribner',
@@ -249,7 +249,7 @@ const REAL_BOOKS: RealBookSeed[] = [
     authorSlug: 'neil-gaiman',
     categorySlug: 'adult-fiction',
     isbn: '9780062572233',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9780062572233-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766913324/american-boss_e9ro60.webp',
     description:
       'Shadow embarks on a road trip with the mysterious Mr. Wednesday amid a war between old and new gods.',
     publisher: 'William Morrow',
@@ -265,7 +265,7 @@ const REAL_BOOKS: RealBookSeed[] = [
     authorSlug: 'neil-gaiman',
     categorySlug: 'children-fiction',
     isbn: '9780380807345',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9780380807345-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766913324/coraline_dtnruk.webp',
     description:
       'Curious Coraline discovers a sinister other world that wants to keep her forever.',
     publisher: 'HarperCollins',
@@ -281,7 +281,7 @@ const REAL_BOOKS: RealBookSeed[] = [
     authorSlug: 'agatha-christie',
     categorySlug: 'adult-fiction',
     isbn: '9780062689665',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9780062689665-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766913336/murder-of-orient-express_vtoo3w.webp',
     description:
       'Hercule Poirot must solve a murder aboard a snowbound luxury train full of suspects.',
     publisher: 'HarperCollins',
@@ -297,7 +297,7 @@ const REAL_BOOKS: RealBookSeed[] = [
     authorSlug: 'agatha-christie',
     categorySlug: 'adult-fiction',
     isbn: '9780062073488',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9780062073488-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766914330/and-then-there-were-none_stg1xp.webp',
     description:
       'Ten strangers are stranded on an island and accused of their darkest crimes one by one.',
     publisher: 'HarperCollins',
@@ -313,7 +313,7 @@ const REAL_BOOKS: RealBookSeed[] = [
     authorSlug: 'brandon-sanderson',
     categorySlug: 'adult-fiction',
     isbn: '9780765326355',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9780765326355-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766913323/the-way-of-kings_oqxfki.webp',
     description:
       'Epic war, stormlight, and radiant knights collide in the opening of the Stormlight Archive.',
     publisher: 'Tor Books',
@@ -329,7 +329,7 @@ const REAL_BOOKS: RealBookSeed[] = [
     authorSlug: 'brandon-sanderson',
     categorySlug: 'adult-fiction',
     isbn: '9780765350381',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9780765350381-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766913324/mistborn_uw0mmt.webp',
     description:
       'A street thief joins rebels who plan to overthrow the immortal Lord Ruler using allomantic magic.',
     publisher: 'Tor Books',
@@ -346,7 +346,8 @@ const REAL_BOOKS: RealBookSeed[] = [
     authorSlug: 'brandon-sanderson',
     categorySlug: 'adult-fiction',
     isbn: '9780765326362',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9780765326362-L.jpg',
+    coverUrl:
+      'https://res.cloudinary.com/dersjymlc/image/upload/v1766913342/words-of-radiance_ejliqc.webp',
     description:
       'Shardbearers unite as ancient spren bonds deepen in the second Stormlight Archive novel.',
     publisher: 'Tor Books',
@@ -362,9 +363,9 @@ const REAL_BOOKS: RealBookSeed[] = [
     authorSlug: 'rick-riordan',
     categorySlug: 'children-fiction',
     isbn: '9781423134947',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9781423134947-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766913336/the-sea-of-monsters_xbfy5b.webp',
     description:
-      'Percy learns he is a demigod and must retrieve Zeus\'s stolen lightning bolt.',
+      "Percy learns he is a demigod and must retrieve Zeus's stolen lightning bolt.",
     publisher: 'Disney Hyperion',
     pages: 400,
     language: 'English',
@@ -378,7 +379,7 @@ const REAL_BOOKS: RealBookSeed[] = [
     authorSlug: 'rick-riordan',
     categorySlug: 'children-fiction',
     isbn: '9781423145509',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9781423145509-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766913336/the-sea-of-monsters_xbfy5b.webp',
     description:
       'Percy sails into the Sea of Monsters to find the Golden Fleece and save Camp Half-Blood.',
     publisher: 'Disney Hyperion',
@@ -389,12 +390,12 @@ const REAL_BOOKS: RealBookSeed[] = [
     publishedAt: '2006-04-01',
   },
   {
-    title: 'Percy Jackson and the Titan\'s Curse',
+    title: "Percy Jackson and the Titan's Curse",
     slug: 'percy-jackson-and-the-titans-curse',
     authorSlug: 'rick-riordan',
     categorySlug: 'children-fiction',
     isbn: '9781423140597',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9781423140597-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766913340/the-son-of-neptune_ma0e8h.webp',
     description:
       'Percy and friends rescue the goddess Artemis while a new prophecy looms.',
     publisher: 'Disney Hyperion',
@@ -410,7 +411,7 @@ const REAL_BOOKS: RealBookSeed[] = [
     authorSlug: 'colleen-hoover',
     categorySlug: 'adult-fiction',
     isbn: '9781501110368',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9781501110368-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766913335/it-ends-with-us_ao80nh.webp',
     description:
       'Lily Bloom confronts love, ambition, and difficult choices in a deeply emotional romance.',
     publisher: 'Atria Books',
@@ -427,7 +428,7 @@ const REAL_BOOKS: RealBookSeed[] = [
     authorSlug: 'colleen-hoover',
     categorySlug: 'adult-fiction',
     isbn: '9781791392796',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9781791392796-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766913342/verity_p6jclv.webp',
     description:
       'A struggling writer uncovers a chilling autobiography that blurs truth and obsession.',
     publisher: 'Grand Central Publishing',
@@ -443,7 +444,7 @@ const REAL_BOOKS: RealBookSeed[] = [
     authorSlug: 'colleen-hoover',
     categorySlug: 'adult-fiction',
     isbn: '9781476753188',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9781476753188-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766913341/ugly-love_ajjbfx.webp',
     description:
       'Tate Collins and pilot Miles Archer navigate a rules-only arrangement that becomes complicated.',
     publisher: 'Atria Books',
@@ -459,7 +460,7 @@ const REAL_BOOKS: RealBookSeed[] = [
     authorSlug: 'patrick-rothfuss',
     categorySlug: 'adult-fiction',
     isbn: '9780756404741',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9780756404741-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766913323/the-name-of-the-wind_n1cp28.webp',
     description:
       'Kvothe recounts his journey from gifted child to legendary magician and musician.',
     publisher: 'DAW Books',
@@ -470,12 +471,12 @@ const REAL_BOOKS: RealBookSeed[] = [
     publishedAt: '2007-03-27',
   },
   {
-    title: 'The Wise Man\'s Fear',
+    title: "The Wise Man's Fear",
     slug: 'the-wise-mans-fear',
     authorSlug: 'patrick-rothfuss',
     categorySlug: 'adult-fiction',
     isbn: '9780756407124',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9780756407124-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766913342/verity_p6jclv.webp',
     description:
       'Kvothe travels the world, hones his abilities, and faces deadly rivals in the Kingkiller Chronicle.',
     publisher: 'DAW Books',
@@ -491,7 +492,7 @@ const REAL_BOOKS: RealBookSeed[] = [
     authorSlug: 'yuval-noah-harari',
     categorySlug: 'technology',
     isbn: '9780062316110',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9780062316110-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766913325/history-of-humankind_rchxtr.webp',
     description:
       'A sweeping narrative of how Homo sapiens rose, cooperated, and reshaped the planet.',
     publisher: 'Harper',
@@ -507,9 +508,9 @@ const REAL_BOOKS: RealBookSeed[] = [
     authorSlug: 'yuval-noah-harari',
     categorySlug: 'technology',
     isbn: '9780062464316',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9780062464316-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766913325/homodeus_z7nbzy.webp',
     description:
-      'Harari explores humanity\'s technological ambitions and the ethical dilemmas ahead.',
+      "Harari explores humanity's technological ambitions and the ethical dilemmas ahead.",
     publisher: 'Harper',
     pages: 449,
     language: 'English',
@@ -523,7 +524,7 @@ const REAL_BOOKS: RealBookSeed[] = [
     authorSlug: 'yuval-noah-harari',
     categorySlug: 'business',
     isbn: '9780525512196',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9780525512196-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766913323/21-lessons-for-21-century_kh9yyy.webp',
     description:
       'Twenty-one concise essays examine work, technology, and truth in the present day.',
     publisher: 'Spiegel & Grau',
@@ -539,7 +540,7 @@ const REAL_BOOKS: RealBookSeed[] = [
     authorSlug: 'jane-austen',
     categorySlug: 'adult-fiction',
     isbn: '9780143105428',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9780143105428-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766913323/pride-and-prejudice_qjghx0.webp',
     description:
       'Elizabeth Bennet navigates society, wit, and the enigmatic Mr. Darcy in this classic romance.',
     publisher: 'Penguin Classics',
@@ -555,7 +556,7 @@ const REAL_BOOKS: RealBookSeed[] = [
     authorSlug: 'jane-austen',
     categorySlug: 'adult-fiction',
     isbn: '9780141439662',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9780141439662-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766913324/sense-and-sendibility_cv0dv0.webp',
     description:
       'The Dashwood sisters balance reason and passion while pursuing love and stability.',
     publisher: 'Penguin Classics',
@@ -571,7 +572,7 @@ const REAL_BOOKS: RealBookSeed[] = [
     authorSlug: 'jane-austen',
     categorySlug: 'adult-fiction',
     isbn: '9780141439587',
-    coverUrl: 'https://covers.openlibrary.org/b/isbn/9780141439587-L.jpg',
+    coverUrl: 'https://res.cloudinary.com/dersjymlc/image/upload/v1766913323/21-lessons-for-21-century_kh9yyy.webp',
     description:
       'Matchmaking misadventures teach Emma Woodhouse humility, empathy, and true affection.',
     publisher: 'Penguin Classics',
@@ -603,8 +604,12 @@ async function main() {
   const db = drizzle(pool, { schema, mode: 'default' });
 
   try {
-    const categorySlugs = Array.from(new Set(REAL_BOOKS.map((book) => book.categorySlug)));
-    const authorSlugs = Array.from(new Set(REAL_BOOKS.map((book) => book.authorSlug)));
+    const categorySlugs = Array.from(
+      new Set(REAL_BOOKS.map((book) => book.categorySlug)),
+    );
+    const authorSlugs = Array.from(
+      new Set(REAL_BOOKS.map((book) => book.authorSlug)),
+    );
 
     const categories = await db
       .select({
@@ -623,16 +628,26 @@ async function main() {
       .where(inArray(schema.authors.slug, authorSlugs));
 
     const categoriesBySlug = new Map(categories.map((cat) => [cat.slug, cat]));
-    const authorsBySlug = new Map(authors.map((author) => [author.slug, author]));
+    const authorsBySlug = new Map(
+      authors.map((author) => [author.slug, author]),
+    );
 
-    const missingCategories = categorySlugs.filter((slug) => !categoriesBySlug.has(slug));
+    const missingCategories = categorySlugs.filter(
+      (slug) => !categoriesBySlug.has(slug),
+    );
     if (missingCategories.length) {
-      throw new Error(`Missing categories for slugs: ${missingCategories.join(', ')}`);
+      throw new Error(
+        `Missing categories for slugs: ${missingCategories.join(', ')}`,
+      );
     }
 
-    const missingAuthors = authorSlugs.filter((slug) => !authorsBySlug.has(slug));
+    const missingAuthors = authorSlugs.filter(
+      (slug) => !authorsBySlug.has(slug),
+    );
     if (missingAuthors.length) {
-      throw new Error(`Missing authors for slugs: ${missingAuthors.join(', ')}`);
+      throw new Error(
+        `Missing authors for slugs: ${missingAuthors.join(', ')}`,
+      );
     }
 
     let inserted = 0;
@@ -670,7 +685,9 @@ async function main() {
       inserted += 1;
     }
 
-    console.log(`Real books seeding completed. Inserted ${inserted} new books.`);
+    console.log(
+      `Real books seeding completed. Inserted ${inserted} new books.`,
+    );
   } finally {
     await pool.end();
   }
