@@ -963,29 +963,32 @@ describe('OrdersService', () => {
 
     it('should successfully update status to CANCELLED and set reason', async () => {
       const VALID_ORDER_ID = randomUUID();
-      
-      // 2. Mock findOrderRow agar mengembalikan data order yang valid untuk di-cancel
+
       jest.spyOn(service as any, 'findOrderRow').mockResolvedValue({
         id: VALID_ORDER_ID,
         status: 'PENDING',
         paymentStatus: 'UNPAID',
       });
 
-      // 3. Mock getOrderDetails agar tidak masuk ke logika sorting/parsing yang error
-      // Ini mencegah error di baris 857 (allowedSortFields)
       jest.spyOn(service as any, 'getOrderDetails').mockResolvedValue({
         id: VALID_ORDER_ID,
         status: 'CANCELLED',
       });
 
+      const updateWhere = jest.fn().mockResolvedValue(undefined);
+      const updateSet = jest.fn().mockReturnValue({
+        where: updateWhere,
+      });
+
+      db.update.mockReturnValue({
+        set: updateSet,
+      });
+
       await service.cancelOrderByCustomer(VALID_ORDER_ID, randomUUID());
 
-      // 4. Verifikasi chaining
       expect(db.update).toHaveBeenCalled();
-      
-      // Kita ambil mock 'set' dari hasil panggilan update pertama
-      const updateResult = db.update.mock.results[0].value;
-      expect(updateResult.set).toHaveBeenCalledWith(
+
+      expect(updateSet).toHaveBeenCalledWith(
         expect.objectContaining({
           status: 'CANCELLED',
           cancelReason: 'USER_CANCEL',
