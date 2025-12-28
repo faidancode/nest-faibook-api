@@ -4,6 +4,7 @@ import { RateLimitService } from './rate-limit.service';
 import { AppConfig } from '../../config/app.config';
 import { SKIP_RATE_LIMIT } from '../constants/rate-limit-constants';
 import { Reflector } from '@nestjs/core';
+import { getClientIp } from '../utils/client-ip.util';
 
 @Injectable()
 export class GlobalRateLimitGuard implements CanActivate {
@@ -24,12 +25,7 @@ export class GlobalRateLimitGuard implements CanActivate {
     const httpCtx = context.switchToHttp();
     const req = httpCtx.getRequest<Request>();
 
-    const ip =
-      (req.headers['cf-connecting-ip'] as string) || // Cloudflare
-      (req.headers['x-real-ip'] as string) || // Nginx
-      (req.headers['x-forwarded-for'] as string)?.split(',')[0] ||
-      req.socket.remoteAddress ||
-      '0.0.0.0';
+    const ip = getClientIp(req);
 
     const { globalLimit, globalTtl } = this.appConfig.rateLimit;
 

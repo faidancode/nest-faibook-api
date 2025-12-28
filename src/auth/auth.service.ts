@@ -313,7 +313,6 @@ export class AuthService {
     return {
       success: true,
       emailSent: true,
-      resetToken,
     };
   }
 

@@ -35,6 +35,9 @@ import { JwtAuthGuard } from './jwt.guard';
 import { EmailService } from 'src/email/email.service';
 import { ZodValidationPipe } from 'src/common/http/zod.validation.pipe';
 import { Role } from 'src/common/constants/roles.enum';
+import { SkipRateLimit } from 'src/common/rate-limit/rate-limit-decorator';
+import { getClientIp } from 'src/common/utils/client-ip.util';
+import { RateLimitService } from 'src/common/rate-limit/rate-limit.service';
 
 export type ClientType = 'web-admin' | 'web-customer' | 'mobile';
 
@@ -74,6 +77,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly emailService: EmailService,
+    private readonly rateLimitService: RateLimitService,
   ) {}
 
   @Post('register')
@@ -308,11 +312,31 @@ export class AuthController {
   async requestEmailConfirmation(
     @Headers('x-client-type') clientHeader: string | undefined,
     @Headers('user-agent') userAgentHeader: string | undefined,
+    @Req() req: Request,
     @Body(new ZodValidationPipe(RequestEmailConfirmationSchema))
     parsed: {
       email: string;
     },
   ) {
+    const ip = getClientIp(req);
+
+    // 1️⃣ IP + email
+    this.rateLimitService.check(
+      ip,
+      'email-confirmation',
+      3, // max 3 request
+      15 * 60 * 1000, // 15 min
+      parsed.email,
+    );
+
+    // 2️⃣ Long window: IP-only
+    this.rateLimitService.check(
+      ip,
+      'email-confirmation-ip',
+      10, // max 10 request
+      60 * 60 * 1000, // 1h
+    );
+
     const clientType = resolveClientType(clientHeader, userAgentHeader);
     const type = isWebClient(clientType) ? 'Web' : 'Mobile';
     const result = await this.authService.requestEmailConfirmation(
@@ -357,11 +381,31 @@ export class AuthController {
   }
 
   @Post('request-password-reset')
+  @SkipRateLimit()
   @HttpCode(HttpStatus.OK)
   async requestPasswordReset(
+    @Req() req: Request,
     @Body(new ZodValidationPipe(RequestPasswordResetSchema))
     parsed: RequestPasswordResetInput,
   ) {
+    const ip = getClientIp(req);
+
+    // 1️⃣ Limit per email + IP
+    this.rateLimitService.check(
+      ip,
+      'password-reset',
+      3, // ⬅️ sangat ketat
+      15 * 60 * 1000, // 15 menit
+      parsed.email,
+    );
+
+    // 2️⃣ Limit IP saja (anti email enumeration)
+    this.rateLimitService.check(
+      ip,
+      'password-reset-ip',
+      10,
+      60 * 60 * 1000, // 1 jam
+    );
     //(anti user enumeration)
     const result = await this.authService.requestPasswordReset(parsed.email);
 
