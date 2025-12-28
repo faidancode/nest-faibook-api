@@ -1,4 +1,4 @@
-// src/main.ts
+console.log('BOOTSTRAP STARTED');
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/http/exception.filter';
@@ -23,6 +23,7 @@ async function bootstrap() {
   app.disable('x-powered-by');
   app.use(cookieParser());
   // CORS
+  console.log('Config Cors');
   const cors = appConfig.cors;
   app.enableCors({
     origin:
