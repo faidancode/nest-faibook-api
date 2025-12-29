@@ -64,6 +64,8 @@ async function bootstrap() {
     logger.log('Swagger docs available at /docs');
   }
 
+  app.enableShutdownHooks();
+
   const port = appConfig.port;
   await app.listen(port);
   logger.log(`Server running on http://localhost:${port}`);

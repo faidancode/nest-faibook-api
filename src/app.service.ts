@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
+import { destroyDrizzleClient } from './infra/drizzle/client';
 
 @Injectable()
 export class AppService {
-  getHello(): string {
-    return 'Hello World!';
+  async onModuleDestroy() {
+    console.log('Gracefully shutting down...');
+    await destroyDrizzleClient();
   }
 }

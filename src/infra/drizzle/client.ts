@@ -5,6 +5,8 @@ import * as schema from './schema';
 
 export type DrizzleDb = ReturnType<typeof drizzle<typeof schema>>;
 
+let pool: mysql.Pool;
+
 export async function createDrizzleClient(config: {
   host: string;
   port: number;
@@ -12,7 +14,7 @@ export async function createDrizzleClient(config: {
   password: string;
   database: string;
 }) {
-  const pool = mysql.createPool({
+  pool = mysql.createPool({
     host: config.host,
     port: config.port,
     user: config.user,
@@ -24,4 +26,12 @@ export async function createDrizzleClient(config: {
   const db = drizzle(pool, { schema, mode: 'default' });
 
   return db;
+}
+
+export async function destroyDrizzleClient() {
+  if (pool) {
+    console.log('Closing MySQL pool...');
+    await pool.end();
+    console.log('MySQL pool closed');
+  }
 }
