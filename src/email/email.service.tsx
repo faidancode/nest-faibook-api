@@ -89,7 +89,7 @@ export class EmailService {
       const { data, error } = await this.resend.emails.send({
         from: `Faibook <${this.fromEmail}>`,
         to: [to],
-        subject: 'Reset Your Password',
+        subject: 'Confirm Your Account.',
         html: emailHtml, // Gunakan HTML yang sudah di-render
         // Optional: tambahkan headers untuk dev mode
         // headers: { 'X-Resend-Development-Mode': 'true' }
