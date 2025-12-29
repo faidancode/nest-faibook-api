@@ -1,4 +1,3 @@
-console.log('BOOTSTRAP STARTED');
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/http/exception.filter';
@@ -64,7 +63,7 @@ async function bootstrap() {
     logger.log('Swagger docs available at /docs');
   }
 
-  app.enableShutdownHooks();
+  // app.enableShutdownHooks();
 
   const port = appConfig.port;
   await app.listen(port);
