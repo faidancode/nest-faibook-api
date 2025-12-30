@@ -85,8 +85,40 @@ export class BooksAdminController {
   }
 
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() body: unknown) {
-    const parsed = UpdateBookSchema.parse(body);
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(FileInterceptor('coverUrl'))
+  async update(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Body() body: unknown,
+  ) {
+    // 1️⃣ Parse body TANPA coverUrl dulu
+    const basePayload = UpdateBookSchema.omit({
+      coverUrl: true,
+    }).parse(body);
+
+    // 2️⃣ Ambil coverUrl string (jika ada)
+    const coverUrlInput =
+      typeof (body as { coverUrl?: unknown })?.coverUrl === 'string'
+        ? (body as { coverUrl?: string }).coverUrl
+        : undefined;
+
+    let coverUrl = coverUrlInput;
+
+    // 3️⃣ Kalau ada file baru → upload & override
+    if (file && file.buffer && file.size > 0) {
+      coverUrl = await this.cloudinaryService.uploadImage(
+        file,
+        'faibook/books',
+      );
+    }
+
+    // 4️⃣ Jangan paksa coverUrl (update ≠ create)
+    const parsed = UpdateBookSchema.parse({
+      ...basePayload,
+      ...(coverUrl ? { coverUrl } : {}),
+    });
+
     return this.booksService.update(id, parsed);
   }
 
