@@ -306,8 +306,8 @@ export class AuthService {
     const resetUrl = `${BASE_URL}/reset-password?token=${resetToken}`;
     await this.emailService.sendResetPasswordEmail(
       email,
-      resetUrl,
       user.name, // Asumsi Anda mengambil nama pengguna saat mencari user
+      resetUrl,
     );
 
     return {
@@ -451,16 +451,11 @@ export class AuthService {
     const confirmUrl = `${baseUrl}/verify-email?token=${token}`;
 
     if (clientType === 'Web') {
-      await this.emailService.sendEmailConfirmationLink(
-        email,
-        user.name,
-        clientType,
-        confirmUrl,
-      );
+      await this.emailService.sendConfirmationLink(email, user.name, confirmUrl);
     }
 
     if (clientType === 'Mobile') {
-      await this.emailService.sendEmailConfirmationPin(email, clientType, pin!);
+      await this.emailService.sendConfirmationPin(email, user.name, pin);
     }
 
     return { success: true, emailSent: true };
@@ -538,16 +533,11 @@ export class AuthService {
       const baseUrl = this.configService.get<string>('WEBSTORE_URL');
       const confirmUrl = `${baseUrl}/verify-email?token=${token}`;
 
-      await this.emailService.sendEmailConfirmationLink(
-        email,
-        user.name,
-        clientType,
-        confirmUrl,
-      );
+      await this.emailService.sendConfirmationLink(email, user.name, confirmUrl);
     }
 
     if (clientType === 'Mobile') {
-      await this.emailService.sendEmailConfirmationPin(email, clientType, pin);
+      await this.emailService.sendConfirmationPin(email, user.name, pin);
     }
 
     return { success: true, emailSent: true };

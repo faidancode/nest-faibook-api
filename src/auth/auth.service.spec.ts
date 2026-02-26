@@ -61,8 +61,8 @@ describe('AuthService', () => {
 
     emailService = {
       sendResetPasswordEmail: jest.fn(),
-      sendEmailConfirmationLink: jest.fn(),
-      sendEmailConfirmationPin: jest.fn(),
+      sendConfirmationLink: jest.fn(),
+      sendConfirmationPin: jest.fn(),
     } as unknown as jest.Mocked<EmailService>;
 
     configService = {
