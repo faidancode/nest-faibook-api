@@ -1,0 +1,79 @@
+<mjml>
+  <mj-head>
+    <mj-attributes>
+      <mj-text font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif" />
+      <mj-button
+        background-color="#2563eb"
+        color="#ffffff"
+        border-radius="6px"
+        font-size="14px"
+        font-weight="600"
+        padding="12px 20px"
+      />
+    </mj-attributes>
+  </mj-head>
+
+  <mj-body background-color="#ffffff">
+    <mj-section padding="24px">
+      <mj-column width="100%">
+
+        <!-- Logo -->
+        <mj-image
+          src="https://res.cloudinary.com/dersjymlc/image/upload/v1766327297/logo-faibook-small_pajwet.png"
+          alt="Your App Logo"
+          width="120px"
+          align="center"
+          padding-bottom="24px"
+        />
+
+        <mj-text font-size="16px">
+          Hi {{userName}},
+        </mj-text>
+
+        <mj-text font-size="14px" line-height="1.6">
+          Please confirm your email address to complete your registration.
+        </mj-text>
+
+        <!-- WEB -->
+        {{#if confirmLink}}
+        <mj-button href="{{confirmLink}}" align="center" padding="32px 0">
+          Confirm Email
+        </mj-button>
+        {{/if}}
+
+        <!-- MOBILE -->
+        {{#if confirmPin}}
+        <mj-text align="center" font-size="14px" padding-top="32px">
+          Enter this verification code in the app:
+        </mj-text>
+
+        <mj-text
+          align="center"
+          font-size="28px"
+          font-weight="700"
+          letter-spacing="6px"
+        >
+          {{confirmPin}}
+        </mj-text>
+        {{/if}}
+
+        <mj-text font-size="13px" line-height="1.6">
+          This confirmation will expire in 60 minutes for security reasons.
+        </mj-text>
+
+        <mj-text font-size="13px" color="#6b7280">
+          If you did not create an account, you can safely ignore this email.
+        </mj-text>
+
+        <mj-text
+          font-size="12px"
+          color="#9ca3af"
+          padding-top="32px"
+        >
+          © {{year}} Your App Name. All rights reserved.
+        </mj-text>
+
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>

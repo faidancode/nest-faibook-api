@@ -145,7 +145,7 @@ describe('BooksAdminController', () => {
       service.update.mockResolvedValue({ id: VALID_UUID } as any);
 
       const body = { title: 'New Title', priceCents: '2000' };
-      await controller.update(VALID_UUID, body);
+      await controller.update(VALID_UUID, undefined, body);
 
       expect(service.update).toHaveBeenCalledWith(
         VALID_UUID,

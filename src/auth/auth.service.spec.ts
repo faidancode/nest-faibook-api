@@ -1,8 +1,10 @@
 import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AppConfig } from '../config/app.config';
+import { EmailService } from 'src/email/email.service';
 
 jest.mock('bcrypt', () => ({
   compare: jest.fn(),
@@ -19,6 +21,8 @@ describe('AuthService', () => {
   let db: any;
   let jwt: { signAsync: jest.Mock; verifyAsync: jest.Mock };
   let appConfig: AppConfig;
+  let emailService: jest.Mocked<EmailService>;
+  let configService: { get: jest.Mock };
   const mockedHash = hash as unknown as jest.MockedFunction<HashFn>;
   const mockedCompare = compare as unknown as jest.MockedFunction<CompareFn>;
 
@@ -55,6 +59,16 @@ describe('AuthService', () => {
     jwt.signAsync.mockReset();
     jwt.verifyAsync.mockReset();
 
+    emailService = {
+      sendResetPasswordEmail: jest.fn(),
+      sendEmailConfirmationLink: jest.fn(),
+      sendEmailConfirmationPin: jest.fn(),
+    } as unknown as jest.Mocked<EmailService>;
+
+    configService = {
+      get: jest.fn().mockReturnValue('http://localhost:3000'),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
@@ -70,6 +84,14 @@ describe('AuthService', () => {
           provide: AppConfig,
           useValue: appConfig,
         },
+        {
+          provide: EmailService,
+          useValue: emailService,
+        },
+        {
+          provide: ConfigService,
+          useValue: configService,
+        },
       ],
     }).compile();
 
@@ -78,6 +100,9 @@ describe('AuthService', () => {
 
   it('registers a new user and returns tokens', async () => {
     db.query.users.findFirst.mockResolvedValueOnce(undefined);
+    jest
+      .spyOn(service, 'requestEmailConfirmation')
+      .mockResolvedValueOnce({ success: true, emailSent: true });
 
     mockedHash.mockResolvedValue('hashed-password');
     jwt.signAsync

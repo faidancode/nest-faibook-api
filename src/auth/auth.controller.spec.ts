@@ -2,6 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import type { Response, Request } from 'express';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { EmailService } from 'src/email/email.service';
+import { RateLimitService } from 'src/common/rate-limit/rate-limit.service';
+import type { JwtPayload } from './auth.schemas';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -14,6 +17,12 @@ describe('AuthController', () => {
       verifyAndIssueAccessByRefreshToken: jest.fn(),
       getMe: jest.fn(),
     };
+    const emailServiceMock: Partial<Record<keyof EmailService, jest.Mock>> = {};
+    const rateLimitServiceMock: Partial<
+      Record<keyof RateLimitService, jest.Mock>
+    > = {
+      check: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
@@ -21,6 +30,14 @@ describe('AuthController', () => {
         {
           provide: AuthService,
           useValue: serviceMock,
+        },
+        {
+          provide: EmailService,
+          useValue: emailServiceMock,
+        },
+        {
+          provide: RateLimitService,
+          useValue: rateLimitServiceMock,
         },
       ],
     }).compile();
@@ -46,6 +63,7 @@ describe('AuthController', () => {
     } as unknown as Response;
 
     const result = await controller.register(
+      undefined,
       undefined,
       {
         name: 'John',
@@ -90,6 +108,7 @@ describe('AuthController', () => {
 
     const result = await controller.register(
       'mobile',
+      undefined,
       {
         name: 'Jane',
         email: 'jane@example.com',
@@ -138,7 +157,7 @@ describe('AuthController', () => {
       cookie: jest.fn(),
     } as unknown as Response;
 
-    const result = await controller.refresh(undefined, req, {}, res);
+    const result = await controller.refresh(undefined, undefined, req, {}, res);
 
     expect(service.verifyAndIssueAccessByRefreshToken).toHaveBeenCalledWith(
       'refresh-token',
@@ -191,7 +210,7 @@ describe('AuthController', () => {
         email: 'john@example.com',
         role: 'CUSTOMER',
       },
-    } as unknown as Request;
+    } as Request & { user: JwtPayload };
 
     const result = await controller.me(req);
 

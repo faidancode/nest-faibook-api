@@ -85,11 +85,12 @@ describe('CustomersService', () => {
       .mockReturnValueOnce(createListBuilder(rows))
       .mockReturnValueOnce(createCountBuilder(rows.length));
 
-    const result = await service.listCustomers({
+    const result = await service.findAll({
       page: 1,
       pageSize: 10,
       q: undefined,
       search: undefined,
+      sort: 'name:asc',
     });
 
     expect(result).toEqual({
@@ -109,11 +110,12 @@ describe('CustomersService', () => {
       'buildWhere',
     );
 
-    await service.listCustomers({
+    await service.findAll({
       page: 1,
       pageSize: 10,
       q: undefined,
       search: 'alice',
+      sort: 'name:asc',
     });
 
     expect(buildWhereSpy).toHaveBeenCalledWith(undefined, 'alice');
